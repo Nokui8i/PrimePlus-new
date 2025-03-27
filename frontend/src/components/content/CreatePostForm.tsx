@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { useUser } from '../../hooks/useUser';
+import { useUser } from '@/context/UserContext';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
@@ -13,12 +13,32 @@ import {
   CubeIcon,
   PhotoIcon,
   ArrowsPointingInIcon,
-  SwatchIcon
+  SwatchIcon,
+  GlobeAltIcon,
+  LockClosedIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import VRViewer from '@/components/VRViewer';
+import Image from 'next/image';
+import { SubscriptionPlan } from '@/services/subscriptionService';
 
 interface CreatePostFormProps {
   onPostCreated?: () => void;
+  subscriptionPlans?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    contentAccess: {
+      regularContent: boolean;
+      premiumVideos: boolean;
+      vrContent: boolean;
+      threeSixtyContent: boolean;
+      liveRooms: boolean;
+      interactiveModels: boolean;
+    };
+  }>;
 }
 
 interface ThumbnailOptions {
@@ -81,12 +101,27 @@ interface MediaFile {
     textureFiles?: File[];
     animationClips?: string[];
   };
+  category: string;
 }
 
 interface VRViewerProps {
   mediaUrl: string;
   contentType: 'model' | '360-video' | '360-image';
   title?: string;
+}
+
+interface VisibilitySettings {
+  isFree: boolean;
+  isIndividualPurchase: boolean;
+  individualPrice: number;
+  includeInSubscription: boolean;
+  selectedPlans: string[];
+}
+
+interface ContentCategory {
+  type: 'regular' | 'premium' | 'vr' | '360' | 'live' | 'interactive';
+  suggestedPlans: string[];
+  description: string;
 }
 
 const DEFAULT_VR_OPTIONS: VROptions = {
@@ -104,7 +139,7 @@ const DEFAULT_VR_OPTIONS: VROptions = {
   }
 };
 
-const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
+const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated, subscriptionPlans = [] }) => {
   const { user } = useUser();
   const router = useRouter();
   const [content, setContent] = useState('');
@@ -118,6 +153,7 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
   const [showThumbnailEditor, setShowThumbnailEditor] = useState(false);
   const [thumbnailSrc, setThumbnailSrc] = useState('');
   const [crop, setCrop] = useState<PixelCrop>();
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [thumbnailOptions, setThumbnailOptions] = useState<ThumbnailOptions>({
     filter: 'none',
     aspectRatio: 1,
@@ -128,12 +164,81 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  
+  // Content access settings
+  const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings>({
+    isFree: true,
+    isIndividualPurchase: false,
+    individualPrice: 4.99,
+    includeInSubscription: false,
+    selectedPlans: []
+  });
+
+  const [contentCategories, setContentCategories] = useState<ContentCategory[]>([]);
+  const [suggestedPlans, setSuggestedPlans] = useState<string[]>([]);
+
+  const detectContentCategory = (file: File): ContentCategory => {
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const is360Photo = file.name.toLowerCase().includes('360') && isImage;
+    const is360Video = file.name.toLowerCase().includes('360') && isVideo;
+    const isVR = file.name.toLowerCase().match(/\.(glb|gltf)$/);
+    const is3DModel = file.name.toLowerCase().match(/\.(fbx|obj|usdz)$/);
+    const isHighRes = file.size > 50 * 1024 * 1024; // Files over 50MB are considered high-res
+
+    // Determine content category
+    if (isVR) {
+      return {
+        type: 'vr',
+        suggestedPlans: ['vrContent'],
+        description: 'VR content - requires VR-enabled subscription plan'
+      };
+    } else if (is360Photo || is360Video) {
+      return {
+        type: '360',
+        suggestedPlans: ['threeSixtyContent'],
+        description: '360° content - requires 360° content subscription plan'
+      };
+    } else if (is3DModel) {
+      return {
+        type: 'interactive',
+        suggestedPlans: ['interactiveModels'],
+        description: 'Interactive 3D model - requires interactive content subscription plan'
+      };
+    } else if (isVideo && isHighRes) {
+      return {
+        type: 'premium',
+        suggestedPlans: ['premiumVideos'],
+        description: 'High-quality video content - suggested for premium plans'
+      };
+    } else {
+      return {
+        type: 'regular',
+        suggestedPlans: ['regularContent'],
+        description: 'Regular content - available in all subscription plans'
+      };
+    }
+  };
 
   const handleMediaChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     
     const newMediaFiles = await Promise.all(files.map(async file => {
+      const category = detectContentCategory(file);
+      
+      // Add to content categories if not already present
+      setContentCategories(prev => {
+        const exists = prev.some(c => c.type === category.type);
+        if (!exists) {
+          return [...prev, category];
+        }
+        return prev;
+      });
+
+      // Update suggested plans
+      setSuggestedPlans(prev => Array.from(new Set([...prev, ...category.suggestedPlans])));
+
       const isImage = file.type.startsWith('image/');
       const isVideo = file.type.startsWith('video/');
       const is360Photo = file.name.toLowerCase().includes('360') && isImage;
@@ -172,19 +277,57 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
           contentType,
           modelFormat: file.name.toLowerCase().split('.').pop() as any,
           animationClips: []
-        } : undefined
+        } : undefined,
+        category: category.type
       };
+
+      // Auto-select appropriate subscription plans based on content type
+      if (category.type !== 'regular') {
+        const matchingPlans = subscriptionPlans.filter(plan => 
+          category.suggestedPlans.some(suggestedType => 
+            plan.contentAccess && plan.contentAccess[suggestedType as keyof typeof plan.contentAccess]
+          )
+        );
+        
+        if (matchingPlans.length > 0) {
+          setVisibilitySettings(prev => ({
+            ...prev,
+            includeInSubscription: true,
+            selectedPlans: Array.from(new Set([...prev.selectedPlans, ...matchingPlans.map(p => p.id)]))
+          }));
+        }
+
+        // If no matching plans found, suggest creating a new plan
+        if (matchingPlans.length === 0) {
+          toast.custom(
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+              <p className="text-blue-700">
+                This content type ({category.description}) requires a specific subscription plan. 
+                Consider creating an appropriate plan in your subscription settings.
+              </p>
+            </div>
+          );
+        }
+      }
 
       return mediaFile;
     }));
 
-    const validFiles = newMediaFiles.filter((file): file is MediaFile => file !== null);
+    const validFiles = newMediaFiles.filter(Boolean) as MediaFile[];
     setMediaFiles(prev => [...prev, ...validFiles]);
-    setShowMediaOptions(true);
 
-    if (validFiles.some(file => ['vr', '3d-model', '360-photo', '360-video'].includes(file.type))) {
-      setSelectedMediaIndex(mediaFiles.length);
-      setShowVROptions(true);
+    // Show content category information
+    if (contentCategories.length > 0) {
+      toast.custom(
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <p className="font-medium mb-2">Content Categories Detected:</p>
+          {contentCategories.map((cat, index) => (
+            <p key={index} className="text-sm text-gray-600 dark:text-gray-300">
+              • {cat.description}
+            </p>
+          ))}
+        </div>
+      );
     }
   };
 
@@ -306,6 +449,7 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
     e.preventDefault();
     
     if (!content.trim() && mediaFiles.length === 0) {
+      toast.error('Please add some content to your post');
       return;
     }
     
@@ -314,6 +458,9 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
       
       const formData = new FormData();
       formData.append('content', content);
+      formData.append('isFreeContent', visibilitySettings.isFree.toString());
+      formData.append('enableSinglePurchase', visibilitySettings.isIndividualPurchase.toString());
+      formData.append('singlePurchasePrice', visibilitySettings.individualPrice.toString());
       
       // Add metadata for VR content
       const vrFiles = mediaFiles.filter(media => media.type === 'vr');
@@ -359,6 +506,13 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
       setPrice('');
       setSelectedMediaIndex(null);
       setShowVROptions(false);
+      setVisibilitySettings({
+        isFree: true,
+        isIndividualPurchase: false,
+        individualPrice: 4.99,
+        includeInSubscription: false,
+        selectedPlans: []
+      });
       
       if (onPostCreated) {
         onPostCreated();
@@ -508,8 +662,8 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
   const createLiveRoom = () => {
     const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const mediaFile: MediaFile = {
-      file: new File([], 'live-room'), // Placeholder file
-      preview: '/images/live-room-preview.jpg', // Add a default preview image
+      file: new File([], 'live-room'),
+      preview: '/images/live-room-preview.jpg',
       type: 'live-room',
       contentMetadata: {
         contentType: 'live-room',
@@ -521,7 +675,8 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
         allowChat: true,
         allowVoice: true,
         allowVideo: true
-      }
+      },
+      category: 'live'
     };
 
     setMediaFiles(prev => [...prev, mediaFile]);
@@ -530,660 +685,431 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="p-4">
-        <div className="flex items-start space-x-4">
-          <div className="flex-shrink-0">
-            {user?.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt={user.name || 'User'} 
-                className="h-10 w-10 rounded-full" 
-              />
-            ) : (
-              <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <form onSubmit={handleSubmit}>
-              <div>
-                <textarea
-                  rows={3}
-                  name="content"
-                  id="content"
-                  className="shadow-sm block w-full focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-                  placeholder="Share something with your followers..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  disabled={isUploading}
+    <>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="p-4">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              {user?.avatar ? (
+                <Image 
+                  src={user.avatar} 
+                  alt={user.fullName || 'User'} 
+                  width={40}
+                  height={40}
+                  className="rounded-full"
                 />
-              </div>
-              
-              {/* Media Preview with VR Options */}
-              {mediaFiles.length > 0 && (
-                <div className="mt-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {mediaFiles.map((media, index) => (
-                      <div 
-                        key={index} 
-                        className="relative rounded-lg overflow-hidden aspect-square cursor-pointer"
-                        onClick={() => {
-                          setSelectedMediaIndex(index);
-                          setShowVROptions(media.type === 'vr');
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className="absolute top-2 right-2 z-10 p-1 bg-black/70 hover:bg-red-600/80 rounded-full text-white"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const newFiles = [...mediaFiles];
-                            URL.revokeObjectURL(newFiles[index].preview);
-                            newFiles.splice(index, 1);
-                            setMediaFiles(newFiles);
-                          }}
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-
-                        {media.type === 'image' ? (
-                          <img 
-                            src={media.preview} 
-                            alt="Preview" 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : media.type === 'video' ? (
-                          <div className="relative w-full h-full">
-                            <video
-                              src={media.preview}
-                              className="w-full h-full object-cover"
-                              controls
-                            />
-                            {media.thumbnail && (
-                              <img 
-                                src={URL.createObjectURL(media.thumbnail)}
-                                alt="Video thumbnail"
-                                className="absolute inset-0 w-full h-full object-cover"
-                                style={{ display: 'none' }}
-                              />
-                            )}
-                          </div>
-                        ) : (
-                          <div className="relative w-full h-full">
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-700">
-                              <CubeTransparentIcon className="w-12 h-12 text-gray-500" />
-                              <span className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                                VR Content
-                              </span>
-                              {!media.thumbnail && (
-                                <button
-                                  type="button"
-                                  className="mt-2 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-900/80 text-white rounded-lg flex items-center"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleThumbnailUpload(index);
-                                  }}
-                                >
-                                  <CameraIcon className="h-4 w-4 mr-1.5" />
-                                  Add Thumbnail
-                                </button>
-                              )}
-                  </div>
-                            {media.thumbnail && (
-                              <>
-                                <img 
-                                  src={URL.createObjectURL(media.thumbnail)}
-                                  alt="VR thumbnail"
-                                  className="absolute inset-0 w-full h-full object-cover"
-                                />
-                                <div className="absolute bottom-2 right-2 z-10 flex space-x-2">
-                                  <button
-                                    type="button"
-                                    className="p-2 bg-black/70 hover:bg-gray-800/80 rounded-full text-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleThumbnailUpload(index);
-                                    }}
-                                  >
-                                    <CameraIcon className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="p-2 bg-black/70 hover:bg-gray-800/80 rounded-full text-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openThumbnailEditor(index);
-                                    }}
-                                    title="Edit thumbnail"
-                                  >
-                                    <PhotoIcon className="h-4 w-4" />
-                                  </button>
-                                  {media.thumbnail && (
-                  <button
-                    type="button"
-                                      className="p-2 bg-red-500/70 hover:bg-red-600/80 rounded-full text-white"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setMediaFiles(prev => {
-                                          const updated = [...prev];
-                                          if (updated[index]) {
-                                            updated[index] = {
-                                              ...updated[index],
-                                              thumbnail: undefined,
-                                              thumbnailOptions: undefined
-                                            };
-                                          }
-                                          return updated;
-                                        });
-                                      }}
-                                      title="Remove thumbnail"
-                                    >
-                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* VR Options Panel */}
-                  {showVROptions && selectedMediaIndex !== null && ['vr', '3d-model', '360-photo', '360-video', 'live-room'].includes(mediaFiles[selectedMediaIndex].type) && (
-                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <h3 className="text-lg font-medium mb-4">
-                        {mediaFiles[selectedMediaIndex].type === 'live-room' ? 'Live Room Settings' :
-                         mediaFiles[selectedMediaIndex].type === '360-photo' ? '360° Photo Settings' :
-                         mediaFiles[selectedMediaIndex].type === '360-video' ? '360° Video Settings' :
-                         mediaFiles[selectedMediaIndex].type === '3d-model' ? '3D Model Settings' :
-                         'VR Content Settings'}
-                      </h3>
-
-                      {/* Live Room Settings */}
-                      {mediaFiles[selectedMediaIndex].type === 'live-room' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Room Name</label>
-                            <input
-                              type="text"
-                              value={mediaFiles[selectedMediaIndex].contentMetadata?.roomName || ''}
-                              onChange={(e) => {
-                                setMediaFiles(prev => {
-                                  const updated = [...prev];
-                                  if (updated[selectedMediaIndex]?.contentMetadata) {
-                                    updated[selectedMediaIndex].contentMetadata!.roomName = e.target.value;
-                                  }
-                                  return updated;
-                                });
-                              }}
-                              className="w-full px-3 py-2 border rounded-md"
-                              placeholder="Enter room name"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Max Participants</label>
-                            <input
-                              type="number"
-                              min="2"
-                              max="50"
-                              value={mediaFiles[selectedMediaIndex].contentMetadata?.maxParticipants || 10}
-                              onChange={(e) => {
-                                setMediaFiles(prev => {
-                                  const updated = [...prev];
-                                  if (updated[selectedMediaIndex]?.contentMetadata) {
-                                    updated[selectedMediaIndex].contentMetadata!.maxParticipants = parseInt(e.target.value);
-                                  }
-                                  return updated;
-                                });
-                              }}
-                              className="w-full px-3 py-2 border rounded-md"
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-2">Room Description</label>
-                            <textarea
-                              value={mediaFiles[selectedMediaIndex].contentMetadata?.roomDescription || ''}
-                              onChange={(e) => {
-                                setMediaFiles(prev => {
-                                  const updated = [...prev];
-                                  if (updated[selectedMediaIndex]?.contentMetadata) {
-                                    updated[selectedMediaIndex].contentMetadata!.roomDescription = e.target.value;
-                                  }
-                                  return updated;
-                                });
-                              }}
-                              className="w-full px-3 py-2 border rounded-md"
-                              rows={3}
-                              placeholder="Describe your room..."
-                            />
-                          </div>
-                          <div className="col-span-2 space-y-2">
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={mediaFiles[selectedMediaIndex].contentMetadata?.isPrivate || false}
-                                onChange={(e) => {
-                                  setMediaFiles(prev => {
-                                    const updated = [...prev];
-                                    if (updated[selectedMediaIndex]?.contentMetadata) {
-                                      updated[selectedMediaIndex].contentMetadata!.isPrivate = e.target.checked;
-                                    }
-                                    return updated;
-                                  });
-                                }}
-                                className="mr-2"
-                              />
-                              Private Room
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={mediaFiles[selectedMediaIndex].contentMetadata?.allowChat || false}
-                                onChange={(e) => {
-                                  setMediaFiles(prev => {
-                                    const updated = [...prev];
-                                    if (updated[selectedMediaIndex]?.contentMetadata) {
-                                      updated[selectedMediaIndex].contentMetadata!.allowChat = e.target.checked;
-                                    }
-                                    return updated;
-                                  });
-                                }}
-                                className="mr-2"
-                              />
-                              Enable Chat
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={mediaFiles[selectedMediaIndex].contentMetadata?.allowVoice || false}
-                                onChange={(e) => {
-                                  setMediaFiles(prev => {
-                                    const updated = [...prev];
-                                    if (updated[selectedMediaIndex]?.contentMetadata) {
-                                      updated[selectedMediaIndex].contentMetadata!.allowVoice = e.target.checked;
-                                    }
-                                    return updated;
-                                  });
-                                }}
-                                className="mr-2"
-                              />
-                              Enable Voice
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={mediaFiles[selectedMediaIndex].contentMetadata?.allowVideo || false}
-                                onChange={(e) => {
-                                  setMediaFiles(prev => {
-                                    const updated = [...prev];
-                                    if (updated[selectedMediaIndex]?.contentMetadata) {
-                                      updated[selectedMediaIndex].contentMetadata!.allowVideo = e.target.checked;
-                                    }
-                                    return updated;
-                                  });
-                                }}
-                                className="mr-2"
-                              />
-                              Enable Video
-                            </label>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* VR/3D Model Settings */}
-                      {(mediaFiles[selectedMediaIndex].type === 'vr' || mediaFiles[selectedMediaIndex].type === '3d-model') && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Camera Position */}
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              <ViewfinderCircleIcon className="h-4 w-4 inline mr-1" />
-                              Camera Position
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                              {['X', 'Y', 'Z'].map((axis) => (
-                                <div key={axis}>
-                                  <label className="block text-xs mb-1">{axis}</label>
-                                  <input
-                                    type="number"
-                                    value={mediaFiles[selectedMediaIndex].vrOptions?.initialPosition?.[axis.toLowerCase() as 'x' | 'y' | 'z'] || 0}
-                                    onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                      ...mediaFiles[selectedMediaIndex].vrOptions,
-                                      initialPosition: {
-                                        ...mediaFiles[selectedMediaIndex].vrOptions?.initialPosition,
-                                        [axis.toLowerCase()]: parseFloat(e.target.value)
-                                      }
-                                    })}
-                                    className="w-full px-2 py-1 text-sm border rounded"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Camera Controls */}
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              <AdjustmentsHorizontalIcon className="h-4 w-4 inline mr-1" />
-                              Camera Controls
-                            </label>
-                            <div className="space-y-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={mediaFiles[selectedMediaIndex].vrOptions?.autoRotate}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    ...mediaFiles[selectedMediaIndex].vrOptions,
-                                    autoRotate: e.target.checked
-                                  })}
-                                  className="mr-2"
-                                />
-                                Auto-rotate
-                              </label>
-                              {mediaFiles[selectedMediaIndex].vrOptions?.autoRotate && (
-                                <input
-                                  type="range"
-                                  min="0.1"
-                                  max="5"
-                                  step="0.1"
-                                  value={mediaFiles[selectedMediaIndex].vrOptions?.autoRotateSpeed || 1}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    ...mediaFiles[selectedMediaIndex].vrOptions,
-                                    autoRotateSpeed: parseFloat(e.target.value)
-                                  })}
-                                  className="w-full"
-                                />
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Animation Settings */}
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              <CubeIcon className="h-4 w-4 inline mr-1" />
-                              Animation
-                            </label>
-                            <div className="space-y-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={mediaFiles[selectedMediaIndex].vrOptions?.animation?.enabled}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    ...mediaFiles[selectedMediaIndex].vrOptions,
-                                    animation: {
-                                      ...mediaFiles[selectedMediaIndex].vrOptions?.animation,
-                                      enabled: e.target.checked
-                                    }
-                                  })}
-                                  className="mr-2"
-                                />
-                                Enable Animation
-                              </label>
-                              {mediaFiles[selectedMediaIndex].vrOptions?.animation?.enabled && (
-                                <div className="space-y-2">
-                                  <label className="flex items-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={mediaFiles[selectedMediaIndex].vrOptions?.animation?.autoPlay}
-                                      onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                        ...mediaFiles[selectedMediaIndex].vrOptions,
-                                        animation: {
-                                          ...mediaFiles[selectedMediaIndex].vrOptions?.animation,
-                                          autoPlay: e.target.checked
-                                        }
-                                      })}
-                                      className="mr-2"
-                                    />
-                                    Auto-play
-                                  </label>
-                                  <label className="flex items-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={mediaFiles[selectedMediaIndex].vrOptions?.animation?.loop}
-                                      onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                        ...mediaFiles[selectedMediaIndex].vrOptions,
-                                        animation: {
-                                          ...mediaFiles[selectedMediaIndex].vrOptions?.animation,
-                                          loop: e.target.checked
-                                        }
-                                      })}
-                                      className="mr-2"
-                                    />
-                                    Loop
-                                  </label>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Zoom Settings */}
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              <ViewfinderCircleIcon className="h-4 w-4 inline mr-1" />
-                              Zoom Controls
-                            </label>
-                            <div className="space-y-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={mediaFiles[selectedMediaIndex].vrOptions?.enableZoom}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    ...mediaFiles[selectedMediaIndex].vrOptions,
-                                    enableZoom: e.target.checked
-                                  })}
-                                  className="mr-2"
-                                />
-                                Enable Zoom
-                              </label>
-                              {mediaFiles[selectedMediaIndex].vrOptions?.enableZoom && (
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="block text-xs mb-1">Min Distance</label>
-                                    <input
-                                      type="number"
-                                      value={mediaFiles[selectedMediaIndex].vrOptions?.minDistance || 2}
-                                      onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                        ...mediaFiles[selectedMediaIndex].vrOptions,
-                                        minDistance: parseFloat(e.target.value)
-                                      })}
-                                      className="w-full px-2 py-1 text-sm border rounded"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs mb-1">Max Distance</label>
-                                    <input
-                                      type="number"
-                                      value={mediaFiles[selectedMediaIndex].vrOptions?.maxDistance || 10}
-                                      onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                        ...mediaFiles[selectedMediaIndex].vrOptions,
-                                        maxDistance: parseFloat(e.target.value)
-                                      })}
-                                      className="w-full px-2 py-1 text-sm border rounded"
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                  <UserGroupIcon className="h-6 w-6 text-gray-500" />
                 </div>
               )}
-              
-                      {/* 360 Photo/Video Settings */}
-                      {(mediaFiles[selectedMediaIndex].type === '360-photo' || mediaFiles[selectedMediaIndex].type === '360-video') && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">Initial View Direction</label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-xs mb-1">Yaw (°)</label>
-                                <input
-                                  type="number"
-                                  min="-180"
-                                  max="180"
-                                  value={mediaFiles[selectedMediaIndex].vrOptions?.initialRotation.y || 0}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    initialRotation: {
-                                      ...mediaFiles[selectedMediaIndex].vrOptions?.initialRotation,
-                                      y: parseFloat(e.target.value)
-                                    }
-                                  })}
-                                  className="w-full px-2 py-1 text-sm border rounded"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs mb-1">Pitch (°)</label>
-                                <input
-                                  type="number"
-                                  min="-90"
-                                  max="90"
-                                  value={mediaFiles[selectedMediaIndex].vrOptions?.initialRotation.x || 0}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    initialRotation: {
-                                      ...mediaFiles[selectedMediaIndex].vrOptions?.initialRotation,
-                                      x: parseFloat(e.target.value)
-                                    }
-                                  })}
-                                  className="w-full px-2 py-1 text-sm border rounded"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium mb-2">View Controls</label>
-                            <div className="space-y-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={mediaFiles[selectedMediaIndex].vrOptions?.enableZoom}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    enableZoom: e.target.checked
-                                  })}
-                                  className="mr-2"
-                                />
-                                Enable Zoom
-                              </label>
-                              <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                                  checked={mediaFiles[selectedMediaIndex].vrOptions?.autoRotate}
-                                  onChange={(e) => handleVROptionsChange(selectedMediaIndex, {
-                                    autoRotate: e.target.checked
-                                  })}
-                                  className="mr-2"
-                                />
-                                Auto-rotate
-                  </label>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Preview */}
-                      <div className="mt-4 aspect-video rounded-lg overflow-hidden bg-black">
-                        <VRViewer
-                          mediaUrl={getVRFileUrl(mediaFiles[selectedMediaIndex].file)}
-                          contentType={
-                            mediaFiles[selectedMediaIndex].type === '360-photo' ? '360-image' :
-                            mediaFiles[selectedMediaIndex].type === '360-video' ? '360-video' :
-                            'model'
-                          }
-                          title={mediaFiles[selectedMediaIndex].file.name}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Upload Buttons */}
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <div className="flex items-center space-x-4">
-                  {/* Photos/Videos */}
-                  <label className="cursor-pointer flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                    <VideoCameraIcon className="h-5 w-5 mr-1" />
-                      <span className="text-sm">Media</span>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="sr-only"
-                      accept="image/*,video/*,.glb,.gltf,.fbx,.obj,.usdz"
-                      onChange={handleMediaChange}
-                      multiple
-                    />
-                  </label>
-                  
-                  {/* Live Room */}
-                  <button
-                    type="button"
-                    onClick={createLiveRoom}
-                    className="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                  >
-                    <VideoCameraIcon className="h-5 w-5 mr-1" />
-                    <span className="text-sm">Live Room</span>
-                  </button>
-                </div>
-                
-                {/* Hidden thumbnail input */}
-                <input
-                  ref={thumbnailInputRef}
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                />
+            </div>
+            
+            <div className="min-w-0 flex-1">
+              <div 
+                onClick={() => setShowUploadModal(true)}
+                className="block w-full rounded-lg border-0 bg-gray-50 dark:bg-gray-700 px-4 py-3 text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                What's on your mind, {user?.fullName?.split(' ')[0] || 'there'}?
               </div>
-
-              {/* Premium Content Options */}
-              {mediaFiles.length > 0 && (
-                <div className="flex items-center space-x-4">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={isPremiumContent}
-                      onChange={(e) => setIsPremiumContent(e.target.checked)}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Premium Content</span>
-                  </label>
-                  
-                  {isPremiumContent && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">$</span>
-                      <input
-                        type="number"
-                        min="0.99"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="Price"
-                        className="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isUploading || (!content.trim() && mediaFiles.length === 0)}
-                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isUploading ? 'Uploading...' : 'Post'}
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Create Post</h3>
+                  <button
+                    onClick={() => setShowUploadModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit}>
+                  {/* Post Input */}
+                  <textarea
+                    rows={3}
+                    name="content"
+                    id="content"
+                    className="block w-full rounded-lg border-0 bg-gray-50 dark:bg-gray-700 px-4 py-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+                    placeholder="What's on your mind?"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    disabled={isUploading}
+                  />
+
+                  {/* Media Preview */}
+                  {mediaFiles.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {mediaFiles.map((media, index) => (
+                        <div key={index} className="relative rounded-lg overflow-hidden aspect-video bg-gray-100">
+                          {media.type === 'image' ? (
+                            <img 
+                              src={media.preview} 
+                              alt="Upload preview" 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video 
+                              src={media.preview} 
+                              className="w-full h-full object-cover" 
+                              controls
+                            />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setMediaFiles(files => files.filter((_, i) => i !== index))}
+                            className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Creator Settings */}
+                  <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <AdjustmentsHorizontalIcon className="h-5 w-5 text-primary-600" />
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100">Creator Settings</h3>
+                    </div>
+
+                    {/* Content Type Info */}
+                    {contentCategories.length > 0 && (
+                      <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center">
+                          <ViewfinderCircleIcon className="h-4 w-4 mr-2" />
+                          Content Type Detection
+                        </h4>
+                        <div className="space-y-2">
+                          {contentCategories.map((cat, index) => (
+                            <div key={index} className="flex items-start space-x-3 text-sm">
+                              <div className="flex-shrink-0 mt-1">
+                                {cat.type === 'vr' && <CubeIcon className="h-4 w-4 text-purple-500" />}
+                                {cat.type === '360' && <ViewfinderCircleIcon className="h-4 w-4 text-indigo-500" />}
+                                {cat.type === 'premium' && <CameraIcon className="h-4 w-4 text-blue-500" />}
+                                {cat.type === 'regular' && <PhotoIcon className="h-4 w-4 text-green-500" />}
+                                {cat.type === 'interactive' && <CubeTransparentIcon className="h-4 w-4 text-yellow-500" />}
+                              </div>
+                              <div>
+                                <p className="text-blue-700 dark:text-blue-300">{cat.description}</p>
+                                {cat.type !== 'regular' && (
+                                  <p className="text-blue-600/70 dark:text-blue-400/70 text-xs mt-1">
+                                    Recommended: Include in subscription plans for optimal monetization
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Access Options */}
+                    <div className="space-y-6">
+                      {/* Free Access Option */}
+                      <div className="relative">
+                        <div className={`p-4 rounded-lg border ${
+                          visibilitySettings.isFree 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-2 rounded-full ${
+                                visibilitySettings.isFree 
+                                  ? 'bg-green-100 dark:bg-green-800' 
+                                  : 'bg-gray-100 dark:bg-gray-700'
+                              }`}>
+                                <GlobeAltIcon className={`h-5 w-5 ${
+                                  visibilitySettings.isFree 
+                                    ? 'text-green-600 dark:text-green-400' 
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`} />
+                              </div>
+                              <div>
+                                <label className="font-medium text-gray-900 dark:text-gray-100">Free Access</label>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Make this content available to everyone</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={visibilitySettings.isFree}
+                                onChange={(e) => setVisibilitySettings(prev => ({
+                                  ...prev,
+                                  isFree: e.target.checked
+                                }))}
+                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Single Purchase Option */}
+                      <div className="relative">
+                        <div className={`p-4 rounded-lg border ${
+                          visibilitySettings.isIndividualPurchase 
+                            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-2 rounded-full ${
+                                visibilitySettings.isIndividualPurchase 
+                                  ? 'bg-yellow-100 dark:bg-yellow-800' 
+                                  : 'bg-gray-100 dark:bg-gray-700'
+                              }`}>
+                                <CurrencyDollarIcon className={`h-5 w-5 ${
+                                  visibilitySettings.isIndividualPurchase 
+                                    ? 'text-yellow-600 dark:text-yellow-400' 
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`} />
+                              </div>
+                              <div>
+                                <label className="font-medium text-gray-900 dark:text-gray-100">Single Purchase</label>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Allow one-time purchases for this content</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={visibilitySettings.isIndividualPurchase}
+                                onChange={(e) => setVisibilitySettings(prev => ({
+                                  ...prev,
+                                  isIndividualPurchase: e.target.checked
+                                }))}
+                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Price Input */}
+                          {visibilitySettings.isIndividualPurchase && (
+                            <div className="mt-4 pl-12">
+                              <div className="flex items-center space-x-2">
+                                <div className="relative rounded-md shadow-sm max-w-[200px]">
+                                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span className="text-gray-500 sm:text-sm">$</span>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="0.99"
+                                    step="0.01"
+                                    value={visibilitySettings.individualPrice}
+                                    onChange={(e) => setVisibilitySettings(prev => ({
+                                      ...prev,
+                                      individualPrice: parseFloat(e.target.value)
+                                    }))}
+                                    placeholder="0.00"
+                                    className="block w-full rounded-md border-0 py-1.5 pl-7 pr-4 text-gray-900 dark:text-gray-100 dark:bg-gray-700 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+                                  />
+                                </div>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">USD</span>
+                              </div>
+                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                Recommended: Set a price between $0.99 and $49.99
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Subscription Plans */}
+                      <div className="relative">
+                        <div className={`p-4 rounded-lg border ${
+                          visibilitySettings.includeInSubscription 
+                            ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' 
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-2 rounded-full ${
+                                visibilitySettings.includeInSubscription 
+                                  ? 'bg-purple-100 dark:bg-purple-800' 
+                                  : 'bg-gray-100 dark:bg-gray-700'
+                              }`}>
+                                <UserGroupIcon className={`h-5 w-5 ${
+                                  visibilitySettings.includeInSubscription 
+                                    ? 'text-purple-600 dark:text-purple-400' 
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`} />
+                              </div>
+                              <div>
+                                <label className="font-medium text-gray-900 dark:text-gray-100">Subscription Plans</label>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Include in your subscription tiers</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={visibilitySettings.includeInSubscription}
+                                onChange={(e) => setVisibilitySettings(prev => ({
+                                  ...prev,
+                                  includeInSubscription: e.target.checked
+                                }))}
+                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Plan Selection */}
+                          {visibilitySettings.includeInSubscription && subscriptionPlans.length > 0 && (
+                            <div className="mt-4 pl-12">
+                              <div className="space-y-3">
+                                {subscriptionPlans.map(plan => (
+                                  <label key={plan.id} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center min-w-0">
+                                      <input
+                                        type="checkbox"
+                                        checked={visibilitySettings.selectedPlans.includes(plan.id)}
+                                        onChange={(e) => {
+                                          setVisibilitySettings(prev => ({
+                                            ...prev,
+                                            selectedPlans: e.target.checked
+                                              ? [...prev.selectedPlans, plan.id]
+                                              : prev.selectedPlans.filter(id => id !== plan.id)
+                                          }));
+                                        }}
+                                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                      />
+                                      <div className="ml-3 min-w-0">
+                                        <div className="flex items-center space-x-2">
+                                          <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                                            {plan.name}
+                                          </span>
+                                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                                            ${plan.price}/month
+                                          </span>
+                                        </div>
+                                        {plan.contentAccess && (
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {plan.contentAccess.regularContent && (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                                Regular
+                                              </span>
+                                            )}
+                                            {plan.contentAccess.premiumVideos && (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                                Premium
+                                              </span>
+                                            )}
+                                            {plan.contentAccess.vrContent && (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                                                VR
+                                              </span>
+                                            )}
+                                            {plan.contentAccess.threeSixtyContent && (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
+                                                360°
+                                              </span>
+                                            )}
+                                            {plan.contentAccess.liveRooms && (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300">
+                                                Live
+                                              </span>
+                                            )}
+                                            {plan.contentAccess.interactiveModels && (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                                Interactive
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                              {subscriptionPlans.length === 0 && (
+                                <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                                  No subscription plans available. Create plans in your profile settings.
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Help Text */}
+                    <div className="mt-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Understanding Content Access</h4>
+                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                        <li className="flex items-start">
+                          <GlobeAltIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
+                          <span>Free content is accessible to all visitors</span>
+                        </li>
+                        <li className="flex items-start">
+                          <CurrencyDollarIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
+                          <span>Single purchase allows users to buy just this content</span>
+                        </li>
+                        <li className="flex items-start">
+                          <UserGroupIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
+                          <span>Subscription plans give access to multiple content pieces</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="mt-4 flex items-center justify-between pt-4">
+                    <div className="flex space-x-4">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                      >
+                        <PhotoIcon className="h-5 w-5 mr-1" />
+                        <span className="text-sm">Photo/Video</span>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*,video/*"
+                        onChange={handleMediaChange}
+                        multiple
+                      />
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowUploadModal(false)}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isUploading || (!content.trim() && mediaFiles.length === 0)}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? 'Posting...' : 'Post'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Thumbnail Editor Modal */}
       {showThumbnailEditor && thumbnailSrc && (
@@ -1335,7 +1261,7 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated }) => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

@@ -1,338 +1,322 @@
-# PrimePlus+ Design System
+# Design Documentation
 
-## Brand Identity
+## Design System
 
-### Colors
+### Color Palette
 
-```css
-/* Primary Colors */
---primary-50: #f0f9ff;
---primary-100: #e0f2fe;
---primary-200: #bae6fd;
---primary-300: #7dd3fc;
---primary-400: #38bdf8;
---primary-500: #0ea5e9;  /* Main Brand Color */
---primary-600: #0284c7;
---primary-700: #0369a1;
---primary-800: #075985;
---primary-900: #0c4a6e;
+#### Primary Colors
+- Primary: `#6366F1` (Indigo)
+- Primary Light: `#818CF8`
+- Primary Dark: `#4F46E5`
 
-/* Neutral Colors */
---neutral-50: #f8fafc;
---neutral-100: #f1f5f9;
---neutral-200: #e2e8f0;
---neutral-300: #cbd5e1;
---neutral-400: #94a3b8;
---neutral-500: #64748b;
---neutral-600: #475569;
---neutral-700: #334155;
---neutral-800: #1e293b;
---neutral-900: #0f172a;
+#### Neutral Colors
+- Neutral 50: `#F9FAFB`
+- Neutral 100: `#F3F4F6`
+- Neutral 200: `#E5E7EB`
+- Neutral 300: `#D1D5DB`
+- Neutral 400: `#9CA3AF`
+- Neutral 500: `#6B7280`
+- Neutral 600: `#4B5563`
+- Neutral 700: `#374151`
+- Neutral 800: `#1F2937`
+- Neutral 900: `#111827`
 
-/* Success Colors */
---success-500: #22c55e;
---success-600: #16a34a;
-
-/* Warning Colors */
---warning-500: #f59e0b;
---warning-600: #d97706;
-
-/* Error Colors */
---error-500: #ef4444;
---error-600: #dc2626;
-```
+#### Accent Colors
+- Success: `#10B981` (Green)
+- Warning: `#F59E0B` (Yellow)
+- Error: `#EF4444` (Red)
+- Info: `#3B82F6` (Blue)
 
 ### Typography
 
-```css
-/* Font Families */
---font-sans: 'Inter', system-ui, -apple-system, sans-serif;
---font-heading: 'Clash Display', sans-serif;
---font-mono: 'JetBrains Mono', monospace;
+#### Font Family
+- Primary: Inter
+- Secondary: Roboto
+- Monospace: JetBrains Mono
 
-/* Font Sizes */
---text-xs: 0.75rem;    /* 12px */
---text-sm: 0.875rem;   /* 14px */
---text-base: 1rem;     /* 16px */
---text-lg: 1.125rem;   /* 18px */
---text-xl: 1.25rem;    /* 20px */
---text-2xl: 1.5rem;    /* 24px */
---text-3xl: 1.875rem;  /* 30px */
---text-4xl: 2.25rem;   /* 36px */
+#### Font Sizes
+- xs: 0.75rem (12px)
+- sm: 0.875rem (14px)
+- base: 1rem (16px)
+- lg: 1.125rem (18px)
+- xl: 1.25rem (20px)
+- 2xl: 1.5rem (24px)
+- 3xl: 1.875rem (30px)
+- 4xl: 2.25rem (36px)
 
-/* Line Heights */
---leading-none: 1;
---leading-tight: 1.25;
---leading-snug: 1.375;
---leading-normal: 1.5;
---leading-relaxed: 1.625;
---leading-loose: 2;
-```
+#### Font Weights
+- Light: 300
+- Regular: 400
+- Medium: 500
+- Semibold: 600
+- Bold: 700
 
 ### Spacing
 
+#### Spacing Scale
+- 0: 0
+- 1: 0.25rem (4px)
+- 2: 0.5rem (8px)
+- 3: 0.75rem (12px)
+- 4: 1rem (16px)
+- 5: 1.25rem (20px)
+- 6: 1.5rem (24px)
+- 8: 2rem (32px)
+- 10: 2.5rem (40px)
+- 12: 3rem (48px)
+- 16: 4rem (64px)
+- 20: 5rem (80px)
+
+### Components
+
+#### Buttons
+
+##### Primary Button
 ```css
-/* Spacing Scale */
---spacing-px: 1px;
---spacing-0: 0;
---spacing-0.5: 0.125rem;  /* 2px */
---spacing-1: 0.25rem;     /* 4px */
---spacing-2: 0.5rem;      /* 8px */
---spacing-3: 0.75rem;     /* 12px */
---spacing-4: 1rem;        /* 16px */
---spacing-6: 1.5rem;      /* 24px */
---spacing-8: 2rem;        /* 32px */
---spacing-12: 3rem;       /* 48px */
---spacing-16: 4rem;       /* 64px */
-```
-
-### Shadows
-
-```css
-/* Box Shadows */
---shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
---shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
---shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
---shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
---shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-```
-
-## Component Design
-
-### Buttons
-
-```css
-/* Primary Button */
 .btn-primary {
-  @apply bg-primary-500 text-white px-4 py-2 rounded-lg font-medium
-         hover:bg-primary-600 focus:ring-2 focus:ring-primary-500/50
-         disabled:opacity-50 disabled:cursor-not-allowed
-         transition-colors duration-200;
+  @apply px-4 py-2 bg-primary-600 text-white rounded-lg 
+         hover:bg-primary-700 transition-colors
+         focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
 }
+```
 
-/* Secondary Button */
+##### Secondary Button
+```css
 .btn-secondary {
-  @apply bg-neutral-200 text-neutral-800 px-4 py-2 rounded-lg font-medium
-         hover:bg-neutral-300 focus:ring-2 focus:ring-neutral-200/50
-         disabled:opacity-50 disabled:cursor-not-allowed
-         transition-colors duration-200;
-}
-
-/* Ghost Button */
-.btn-ghost {
-  @apply text-neutral-600 px-4 py-2 rounded-lg font-medium
-         hover:bg-neutral-100 focus:ring-2 focus:ring-neutral-200/50
-         disabled:opacity-50 disabled:cursor-not-allowed
-         transition-colors duration-200;
+  @apply px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg 
+         hover:bg-neutral-200 transition-colors
+         focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2;
 }
 ```
 
-### Cards
-
+##### Icon Button
 ```css
-/* Basic Card */
+.btn-icon {
+  @apply p-2 text-neutral-500 rounded-lg 
+         hover:bg-neutral-100 transition-colors
+         focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2;
+}
+```
+
+#### Cards
+
+##### Content Card
+```css
 .card {
-  @apply bg-white dark:bg-neutral-800 rounded-xl shadow-md p-6
-         border border-neutral-200 dark:border-neutral-700;
-}
-
-/* Interactive Card */
-.card-interactive {
-  @apply hover:shadow-lg transition-shadow duration-200
-         hover:border-primary-500/50;
+  @apply bg-white dark:bg-neutral-800 rounded-xl shadow-sm 
+         overflow-hidden transition-shadow hover:shadow-md;
 }
 ```
 
-### Forms
-
+##### Stats Card
 ```css
-/* Input Field */
-.input {
-  @apply w-full px-4 py-2 rounded-lg border border-neutral-300
-         focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500
-         disabled:opacity-50 disabled:cursor-not-allowed
-         dark:bg-neutral-800 dark:border-neutral-600;
-}
-
-/* Select Field */
-.select {
-  @apply w-full px-4 py-2 rounded-lg border border-neutral-300
-         focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500
-         disabled:opacity-50 disabled:cursor-not-allowed
-         dark:bg-neutral-800 dark:border-neutral-600;
-}
-
-/* Checkbox */
-.checkbox {
-  @apply h-5 w-5 rounded border-neutral-300
-         text-primary-500 focus:ring-primary-500/50
-         dark:border-neutral-600;
+.card-stats {
+  @apply bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg;
 }
 ```
+
+#### Forms
+
+##### Input Field
+```css
+.input {
+  @apply w-full px-3 py-2 border border-neutral-300 rounded-lg 
+         focus:outline-none focus:ring-2 focus:ring-primary-500 
+         focus:border-transparent dark:bg-neutral-700 dark:border-neutral-600;
+}
+```
+
+##### Textarea
+```css
+.textarea {
+  @apply w-full px-3 py-2 border border-neutral-300 rounded-lg 
+         focus:outline-none focus:ring-2 focus:ring-primary-500 
+         focus:border-transparent dark:bg-neutral-700 dark:border-neutral-600;
+}
+```
+
+### Layout
+
+#### Grid System
+- 12-column grid
+- Responsive breakpoints:
+  - sm: 640px
+  - md: 768px
+  - lg: 1024px
+  - xl: 1280px
+  - 2xl: 1536px
+
+#### Container Widths
+- sm: 640px
+- md: 768px
+- lg: 1024px
+- xl: 1280px
+- 2xl: 1536px
+
+### Animations
+
+#### Transitions
+- Duration: 150ms
+- Timing: cubic-bezier(0.4, 0, 0.2, 1)
+- Properties:
+  - color
+  - background-color
+  - border-color
+  - opacity
+  - transform
+  - box-shadow
+
+#### Hover Effects
+- Scale: 1.02
+- Shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1)
+- Opacity: 0.9
+
+### Dark Mode
+
+#### Color Mapping
+- Background: Neutral 900
+- Surface: Neutral 800
+- Text: Neutral 100
+- Border: Neutral 700
+- Accent: Primary 400
+
+#### Dark Mode Toggle
+- Smooth transition
+- System preference detection
+- Manual override option
+
+### Accessibility
+
+#### Color Contrast
+- Minimum contrast ratio: 4.5:1
+- Large text contrast ratio: 3:1
+- Interactive elements: 3:1
+
+#### Focus States
+- Visible focus ring
+- High contrast outline
+- Keyboard navigation support
+
+#### Screen Reader Support
+- ARIA labels
+- Semantic HTML
+- Skip links
+- Alt text for images
+
+### Responsive Design
+
+#### Mobile First
+- Base styles for mobile
+- Progressive enhancement
+- Touch-friendly targets
+- Simplified navigation
+
+#### Tablet
+- Expanded layout
+- Side navigation
+- Larger touch targets
+- Optimized content display
+
+#### Desktop
+- Full layout
+- Advanced features
+- Keyboard shortcuts
+- Multi-column layouts
+
+### Loading States
+
+#### Skeleton Loading
+- Animated placeholder
+- Content structure preview
+- Smooth transition
+- Progressive loading
+
+#### Spinners
+- Centered alignment
+- Consistent size
+- Brand color usage
+- Smooth animation
+
+### Error States
+
+#### Error Messages
+- Clear error text
+- Action suggestions
+- Visual indicators
+- Dismissible alerts
+
+#### Empty States
+- Helpful illustrations
+- Clear messaging
+- Action buttons
+- Contextual guidance
 
 ### Navigation
 
-```css
-/* Nav Link */
-.nav-link {
-  @apply text-neutral-600 hover:text-neutral-900
-         dark:text-neutral-400 dark:hover:text-white
-         font-medium transition-colors duration-200;
-}
+#### Sidebar
+- Collapsible sections
+- Active state indicators
+- Nested navigation
+- Quick actions
 
-/* Active Nav Link */
-.nav-link-active {
-  @apply text-primary-500 hover:text-primary-600
-         dark:text-primary-400 dark:hover:text-primary-300;
-}
-```
+#### Breadcrumbs
+- Clear hierarchy
+- Clickable segments
+- Current page indicator
+- Mobile optimization
 
-## Layout Guidelines
+### Content Display
 
-### Grid System
+#### Media Grid
+- Responsive layout
+- Aspect ratio preservation
+- Lazy loading
+- Loading states
 
-```css
-/* Container */
-.container {
-  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
-}
+#### Content Cards
+- Consistent spacing
+- Clear hierarchy
+- Interactive elements
+- Loading states
 
-/* Grid */
-.grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6;
-}
-```
+### Forms
 
-### Responsive Breakpoints
+#### Form Layout
+- Clear labels
+- Required field indicators
+- Error states
+- Success feedback
 
-```css
-/* Breakpoints */
---screen-sm: 640px;   /* @media (min-width: 640px) */
---screen-md: 768px;   /* @media (min-width: 768px) */
---screen-lg: 1024px;  /* @media (min-width: 1024px) */
---screen-xl: 1280px;  /* @media (min-width: 1280px) */
---screen-2xl: 1536px; /* @media (min-width: 1536px) */
-```
+#### Input Groups
+- Consistent spacing
+- Clear relationships
+- Error handling
+- Validation feedback
 
-## Component Examples
+### Modals
 
-### Profile Card
-```jsx
-<div className="card p-6 max-w-sm">
-  <div className="flex items-center space-x-4">
-    <img className="h-12 w-12 rounded-full" src={user.avatar} alt="" />
-    <div>
-      <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
-        {user.name}
-      </h3>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        {user.role}
-      </p>
-    </div>
-  </div>
-</div>
-```
+#### Modal Design
+- Centered positioning
+- Backdrop overlay
+- Close button
+- Focus management
 
-### Content Card
-```jsx
-<div className="card p-0 overflow-hidden">
-  <img className="w-full h-48 object-cover" src={post.image} alt="" />
-  <div className="p-6">
-    <h3 className="text-xl font-medium mb-2">{post.title}</h3>
-    <p className="text-neutral-600 dark:text-neutral-400">{post.excerpt}</p>
-    <div className="mt-4 flex justify-between items-center">
-      <button className="btn-primary">Read More</button>
-      <div className="flex items-center space-x-2 text-neutral-500">
-        <HeartIcon className="h-5 w-5" />
-        <span>{post.likes}</span>
-      </div>
-    </div>
-  </div>
-</div>
-```
+#### Dialog Boxes
+- Clear purpose
+- Action buttons
+- Cancel option
+- Keyboard support
 
-### Form Example
-```jsx
-<form className="space-y-6">
-  <div>
-    <label className="block text-sm font-medium mb-2">
-      Email
-    </label>
-    <input
-      type="email"
-      className="input"
-      placeholder="Enter your email"
-    />
-  </div>
-  <div>
-    <label className="block text-sm font-medium mb-2">
-      Password
-    </label>
-    <input
-      type="password"
-      className="input"
-      placeholder="Enter your password"
-    />
-  </div>
-  <div className="flex items-center">
-    <input type="checkbox" className="checkbox" />
-    <label className="ml-2 text-sm">
-      Remember me
-    </label>
-  </div>
-  <button type="submit" className="btn-primary w-full">
-    Sign In
-  </button>
-</form>
-```
+### Notifications
 
-## Dark Mode
+#### Toast Messages
+- Non-intrusive
+- Auto-dismiss
+- Action buttons
+- Stack management
 
-All components should support dark mode using Tailwind's dark: modifier. The dark mode is activated based on the user's system preferences or manual toggle.
-
-### Dark Mode Colors
-```css
-/* Dark Mode Background */
-.dark body {
-  @apply bg-neutral-900 text-white;
-}
-
-/* Dark Mode Card */
-.dark .card {
-  @apply bg-neutral-800 border-neutral-700;
-}
-
-/* Dark Mode Input */
-.dark .input {
-  @apply bg-neutral-800 border-neutral-600 text-white;
-}
-```
-
-## Animation Guidelines
-
-```css
-/* Transitions */
-.transition-base {
-  @apply transition-all duration-200 ease-in-out;
-}
-
-/* Hover Effects */
-.hover-lift {
-  @apply hover:-translate-y-1 transition-transform duration-200;
-}
-
-/* Loading States */
-.loading-pulse {
-  @apply animate-pulse bg-neutral-200 dark:bg-neutral-700;
-}
-```
-
-## Best Practices
-
-1. **Consistency**: Use the defined color palette, typography, and spacing scales
-2. **Accessibility**: Ensure sufficient color contrast and proper ARIA attributes
-3. **Responsiveness**: Design mobile-first and use responsive utilities
-4. **Performance**: Optimize images and minimize CSS bundle size
-5. **Dark Mode**: Support both light and dark themes
-6. **Animation**: Use subtle animations to enhance UX
-7. **Components**: Build reusable components following these guidelines 
+#### Alert Banners
+- Contextual colors
+- Clear messaging
+- Action buttons
+- Dismissible option 

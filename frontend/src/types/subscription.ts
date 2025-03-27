@@ -1,19 +1,60 @@
+export interface ContentTypeAccess {
+  regularContent: boolean;
+  premiumVideos: boolean;
+  vrContent: boolean;
+  threeSixtyContent: boolean;
+  liveRooms: boolean;
+  interactiveModels: boolean;
+}
+
 export interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  description: string;
-  isActive: boolean;
-  features: string[];
-  intervalInDays: number;
+  description?: string;
+  isActive?: boolean;
+  features?: string[];
+  intervalInDays?: number;
+  contentAccess: ContentTypeAccess;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Discount {
   id: string;
   code: string;
   percentage: number;
-  validUntil: Date;
+  validUntil: string;
   isActive: boolean;
+}
+
+export interface ExtendedProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  bio?: string;
+  avatar?: string;
+  coverImage?: string;
+  isVerified?: boolean;
+  location?: string;
+  website?: string;
+  isCreator?: boolean;
+  joinDate?: string;
+  followers?: number;
+  following?: number;
+  posts?: number;
+  postsCount: number;
+  followersCount: number;
+  followingCount: number;
+  totalViews?: number;
+  totalLikes?: number;
+  totalComments?: number;
+  subscriptionPlans: SubscriptionPlan[];
+  discounts: Discount[];
+  defaultSubscriptionPrice?: number;
+  freeAccessList?: string[];
+  subscribedTo?: string[];
 }
 
 export interface Subscriber {

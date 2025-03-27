@@ -1,11 +1,27 @@
-# PrimePlus+ API Documentation
+# API Documentation
+
+## Base URL
+
+```
+https://api.primeplus.com/v1
+```
 
 ## Authentication
 
-### POST /api/auth/login
-Login with email and password.
+### Headers
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
-**Request:**
+### Authentication Endpoints
+
+#### Login
+```http
+POST /auth/login
+```
+
+Request body:
 ```json
 {
   "email": "string",
@@ -13,189 +29,270 @@ Login with email and password.
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
   "token": "string",
   "user": {
     "id": "string",
-    "email": "string",
     "username": "string",
-    "role": "string"
+    "fullName": "string",
+    "email": "string",
+    "avatar": "string",
+    "isCreator": boolean,
+    "isVerified": boolean
   }
 }
 ```
 
-### POST /api/auth/register
-Register a new user account.
+#### Register
+```http
+POST /auth/register
+```
 
-**Request:**
+Request body:
 ```json
 {
-  "email": "string",
-  "password": "string",
   "username": "string",
-  "fullName": "string"
+  "fullName": "string",
+  "email": "string",
+  "password": "string"
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
-  "id": "string",
-  "email": "string",
-  "username": "string",
-  "createdAt": "string"
+  "token": "string",
+  "user": {
+    "id": "string",
+    "username": "string",
+    "fullName": "string",
+    "email": "string",
+    "avatar": "string",
+    "isCreator": boolean,
+    "isVerified": boolean
+  }
 }
 ```
 
-## Profile
+## User Endpoints
 
-### GET /api/profile/:username
-Get user profile data.
+### Get User Profile
+```http
+GET /users/:id
+```
 
-**Response:**
+Response:
 ```json
 {
   "id": "string",
   "username": "string",
   "fullName": "string",
+  "email": "string",
+  "avatar": "string",
   "bio": "string",
-  "avatarUrl": "string",
-  "coverUrl": "string",
+  "coverImage": "string",
+  "isVerified": boolean,
+  "isCreator": boolean,
+  "joinDate": "string",
+  "followers": number,
+  "following": number,
+  "posts": number,
+  "postsCount": number,
+  "followersCount": number,
+  "followingCount": number,
+  "totalViews": number,
+  "totalLikes": number,
+  "totalComments": number
+}
+```
+
+### Update User Profile
+```http
+PUT /users/:id
+```
+
+Request body:
+```json
+{
+  "fullName": "string",
+  "bio": "string",
+  "location": "string",
+  "website": "string"
+}
+```
+
+Response:
+```json
+{
+  "id": "string",
+  "username": "string",
+  "fullName": "string",
+  "email": "string",
+  "avatar": "string",
+  "bio": "string",
+  "coverImage": "string",
   "location": "string",
   "website": "string",
-  "socialLinks": {
-    "twitter": "string",
-    "instagram": "string",
-    "youtube": "string"
-  },
-  "stats": {
-    "postsCount": "number",
-    "followersCount": "number",
-    "followingCount": "number",
-    "totalViews": "number",
-    "totalLikes": "number"
-  },
-  "subscriptionPlans": [
+  "isVerified": boolean,
+  "isCreator": boolean
+}
+```
+
+## Content Endpoints
+
+### Create Post
+```http
+POST /posts
+```
+
+Request body:
+```json
+{
+  "title": "string",
+  "content": "string",
+  "description": "string",
+  "media": [
     {
-      "id": "string",
-      "name": "string",
-      "price": "number",
-      "description": "string",
-      "features": ["string"]
+      "type": "image" | "video" | "vr",
+      "url": "string",
+      "thumbnail": "string",
+      "subscriptionPackId": "string" | null,
+      "includeInSubscription": boolean,
+      "individualPrice": number
+    }
+  ],
+  "isScheduled": boolean,
+  "scheduledDate": "string"
+}
+```
+
+Response:
+```json
+{
+  "id": "string",
+  "title": "string",
+  "content": "string",
+  "description": "string",
+  "thumbnail": "string",
+  "createdAt": "string",
+  "updatedAt": "string",
+  "authorId": "string",
+  "creator": {
+    "id": "string",
+    "username": "string",
+    "fullName": "string",
+    "avatar": "string"
+  },
+  "likes": number,
+  "comments": number,
+  "views": number,
+  "isPremium": boolean,
+  "media": [
+    {
+      "type": "image" | "video" | "vr",
+      "url": "string",
+      "thumbnail": "string",
+      "subscriptionPackId": "string" | null,
+      "includeInSubscription": boolean,
+      "individualPrice": number
     }
   ]
 }
 ```
 
-### PATCH /api/profile
-Update user profile. Requires authentication.
-
-**Request:**
-```json
-{
-  "fullName": "string",
-  "bio": "string",
-  "location": "string",
-  "website": "string",
-  "socialLinks": {
-    "twitter": "string",
-    "instagram": "string",
-    "youtube": "string"
-  }
-}
+### Get Posts
+```http
+GET /posts
 ```
 
-## Content
+Query parameters:
+- `userId`: string (optional)
+- `page`: number
+- `limit`: number
+- `type`: "all" | "premium" | "free"
 
-### POST /api/posts
-Create a new post. Requires authentication.
-
-**Request:**
-```json
-{
-  "title": "string",
-  "description": "string",
-  "mediaItems": [
-    {
-      "type": "photo|video|vr",
-      "url": "string",
-      "thumbnailUrl": "string",
-      "accessType": "free|subscription|purchase",
-      "price": "number"
-    }
-  ],
-  "isScheduled": "boolean",
-  "scheduledDate": "string",
-  "tags": ["string"]
-}
-```
-
-### GET /api/posts
-Get posts with pagination and filters.
-
-**Query Parameters:**
-- page: number
-- limit: number
-- username: string
-- type: "photo|video|vr"
-- access: "free|subscription|purchase"
-
-**Response:**
+Response:
 ```json
 {
   "posts": [
     {
       "id": "string",
       "title": "string",
+      "content": "string",
       "description": "string",
-      "mediaItems": [
-        {
-          "type": "string",
-          "url": "string",
-          "thumbnailUrl": "string",
-          "accessType": "string",
-          "price": "number"
-        }
-      ],
-      "author": {
+      "thumbnail": "string",
+      "createdAt": "string",
+      "updatedAt": "string",
+      "authorId": "string",
+      "creator": {
+        "id": "string",
         "username": "string",
-        "avatarUrl": "string"
+        "fullName": "string",
+        "avatar": "string"
       },
-      "stats": {
-        "views": "number",
-        "likes": "number",
-        "comments": "number"
-      },
-      "createdAt": "string"
+      "likes": number,
+      "comments": number,
+      "views": number,
+      "isPremium": boolean,
+      "media": [
+        {
+          "type": "image" | "video" | "vr",
+          "url": "string",
+          "thumbnail": "string",
+          "subscriptionPackId": "string" | null,
+          "includeInSubscription": boolean,
+          "individualPrice": number
+        }
+      ]
     }
   ],
-  "totalCount": "number",
-  "hasMore": "boolean"
+  "hasMore": boolean,
+  "total": number
 }
 ```
 
-## Subscriptions
+## Subscription Endpoints
 
-### POST /api/subscriptions/plans
-Create subscription plan. Requires creator authentication.
+### Get Subscription Plans
+```http
+GET /subscriptions/plans
+```
 
-**Request:**
+Response:
 ```json
 {
-  "name": "string",
-  "price": "number",
-  "description": "string",
-  "features": ["string"],
-  "duration": "number"
+  "plans": [
+    {
+      "id": "string",
+      "name": "string",
+      "price": number,
+      "description": "string",
+      "isActive": boolean,
+      "features": string[],
+      "intervalInDays": number,
+      "contentAccess": {
+        "regularContent": boolean,
+        "premiumVideos": boolean,
+        "vrContent": boolean,
+        "threeSixtyContent": boolean,
+        "liveRooms": boolean,
+        "interactiveModels": boolean
+      },
+      "createdAt": "string",
+      "updatedAt": "string"
+    }
+  ]
 }
 ```
 
-### POST /api/subscriptions/subscribe
-Subscribe to a creator's plan.
+### Create Subscription
+```http
+POST /subscriptions
+```
 
-**Request:**
+Request body:
 ```json
 {
   "planId": "string",
@@ -203,144 +300,136 @@ Subscribe to a creator's plan.
 }
 ```
 
-## Media Upload
-
-### POST /api/upload/presigned
-Get presigned URL for media upload.
-
-**Request:**
+Response:
 ```json
 {
-  "fileName": "string",
-  "fileType": "string",
-  "fileSize": "number"
+  "id": "string",
+  "userId": "string",
+  "planId": "string",
+  "status": "active" | "cancelled" | "expired",
+  "startDate": "string",
+  "endDate": "string",
+  "autoRenew": boolean
 }
 ```
 
-**Response:**
+### Cancel Subscription
+```http
+DELETE /subscriptions/:id
+```
+
+Response:
 ```json
 {
-  "uploadUrl": "string",
-  "fileUrl": "string",
-  "fields": {
-    "key": "string",
-    "bucket": "string",
-    "X-Amz-Algorithm": "string",
-    "X-Amz-Credential": "string",
-    "X-Amz-Date": "string",
-    "Policy": "string",
-    "X-Amz-Signature": "string"
+  "id": "string",
+  "status": "cancelled",
+  "cancelledAt": "string"
+}
+```
+
+## Creator Dashboard Endpoints
+
+### Get Creator Stats
+```http
+GET /creator/stats
+```
+
+Response:
+```json
+{
+  "totalRevenue": number,
+  "activeSubscribers": number,
+  "engagementRate": number,
+  "contentStats": {
+    "totalPosts": number,
+    "premiumPosts": number,
+    "totalViews": number,
+    "totalLikes": number,
+    "totalComments": number
   }
 }
 ```
 
-## Notifications
+### Get Revenue Analytics
+```http
+GET /creator/revenue
+```
 
-### GET /api/notifications
-Get user notifications. Requires authentication.
+Query parameters:
+- `startDate`: string
+- `endDate`: string
+- `groupBy`: "day" | "week" | "month"
 
-**Query Parameters:**
-- page: number
-- limit: number
-- type: "all|unread"
-
-**Response:**
+Response:
 ```json
 {
-  "notifications": [
+  "revenue": [
     {
-      "id": "string",
-      "type": "string",
-      "message": "string",
-      "data": "object",
-      "isRead": "boolean",
-      "createdAt": "string"
+      "date": "string",
+      "amount": number,
+      "breakdown": {
+        "subscriptions": number,
+        "individualPurchases": number,
+        "tips": number
+      }
     }
   ],
-  "unreadCount": "number",
-  "hasMore": "boolean"
+  "total": number
 }
 ```
 
-### POST /api/notifications/read
-Mark notifications as read. Requires authentication.
-
-**Request:**
-```json
-{
-  "notificationIds": ["string"]
-}
+### Get Subscriber Analytics
+```http
+GET /creator/subscribers
 ```
 
-## Analytics
+Query parameters:
+- `startDate`: string
+- `endDate`: string
+- `groupBy`: "day" | "week" | "month"
 
-### GET /api/analytics/overview
-Get creator analytics overview. Requires creator authentication.
-
-**Query Parameters:**
-- timeframe: "day|week|month|year"
-
-**Response:**
+Response:
 ```json
 {
-  "views": {
-    "total": "number",
-    "change": "number",
-    "data": [
-      {
-        "date": "string",
-        "value": "number"
-      }
-    ]
-  },
-  "revenue": {
-    "total": "number",
-    "change": "number",
-    "data": [
-      {
-        "date": "string",
-        "value": "number"
-      }
-    ]
-  },
-  "subscribers": {
-    "total": "number",
-    "change": "number",
-    "data": [
-      {
-        "date": "string",
-        "value": "number"
-      }
-    ]
+  "subscribers": [
+    {
+      "date": "string",
+      "newSubscribers": number,
+      "cancelledSubscribers": number,
+      "activeSubscribers": number
+    }
+  ],
+  "total": {
+    "new": number,
+    "cancelled": number,
+    "active": number
   }
 }
 ```
 
 ## Error Responses
 
-All endpoints may return the following error responses:
-
 ### 400 Bad Request
 ```json
 {
   "error": "string",
   "message": "string",
-  "details": "object"
+  "details": object
 }
 ```
 
 ### 401 Unauthorized
 ```json
 {
-  "error": "Unauthorized",
-  "message": "Authentication required"
+  "error": "unauthorized",
+  "message": "Invalid or expired token"
 }
 ```
 
 ### 403 Forbidden
 ```json
 {
-  "error": "Forbidden",
+  "error": "forbidden",
   "message": "Insufficient permissions"
 }
 ```
@@ -348,7 +437,7 @@ All endpoints may return the following error responses:
 ### 404 Not Found
 ```json
 {
-  "error": "Not Found",
+  "error": "not_found",
   "message": "Resource not found"
 }
 ```
@@ -356,91 +445,68 @@ All endpoints may return the following error responses:
 ### 429 Too Many Requests
 ```json
 {
-  "error": "Too Many Requests",
-  "message": "Rate limit exceeded",
-  "retryAfter": "number"
+  "error": "rate_limit_exceeded",
+  "message": "Too many requests",
+  "retryAfter": number
 }
 ```
 
 ### 500 Internal Server Error
 ```json
 {
-  "error": "Internal Server Error",
+  "error": "internal_server_error",
   "message": "An unexpected error occurred"
 }
 ```
 
-## Authentication
-
-All authenticated endpoints require a Bearer token in the Authorization header:
-
-```
-Authorization: Bearer <token>
-```
-
 ## Rate Limiting
 
-- Public API: 100 requests per minute
-- Authenticated API: 1000 requests per minute
-- Media upload: 50 requests per hour
-
-## Pagination
-
-Endpoints that return lists support pagination through query parameters:
-
-- page: Page number (default: 1)
-- limit: Items per page (default: 20, max: 100)
-
-Response includes:
-- hasMore: Boolean indicating if more items exist
-- totalCount: Total number of items (when available)
-
-## Versioning
-
-Current API version: v1
-Include version in URL: `/api/v1/endpoint`
+- 100 requests per minute per IP
+- 1000 requests per hour per user
+- 10000 requests per day per user
 
 ## WebSocket Events
 
 ### Connection
 ```javascript
-ws://api.primeplus.com/ws?token=<auth_token>
+const socket = new WebSocket('wss://api.primeplus.com/v1/ws');
 ```
 
 ### Events
-```javascript
-// New notification
+
+#### Notification
+```json
 {
   "type": "notification",
   "data": {
     "id": "string",
     "type": "string",
     "message": "string",
-    "data": "object",
     "createdAt": "string"
   }
 }
+```
 
-// Live stream status
+#### Subscription Update
+```json
 {
-  "type": "stream_status",
+  "type": "subscription_update",
   "data": {
-    "streamId": "string",
-    "status": "live|ended",
-    "viewerCount": "number"
+    "id": "string",
+    "status": "string",
+    "updatedAt": "string"
   }
 }
+```
 
-// Content interaction
+#### Content Update
+```json
 {
-  "type": "content_interaction",
+  "type": "content_update",
   "data": {
-    "contentId": "string",
-    "type": "view|like|comment",
-    "user": {
-      "username": "string",
-      "avatarUrl": "string"
-    }
+    "id": "string",
+    "type": "string",
+    "updatedAt": "string"
   }
 }
 ``` 

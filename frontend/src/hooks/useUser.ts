@@ -1,4 +1,5 @@
-import { useSession } from 'next-auth/react';
+import { useContext } from 'react';
+import { UserContext } from '@/context/UserContext';
 
 interface User {
   id: string;
@@ -9,19 +10,17 @@ interface User {
 }
 
 export function useUser() {
-  const { data: session, status } = useSession();
-
-  const user: User | null = session?.user ? {
-    id: session.user.id || '',
-    name: session.user.name || null,
-    email: session.user.email || null,
-    avatar: session.user.image || null,
-    isPremium: false // Default to non-premium
-  } : null;
+  const { user, isLoading } = useContext(UserContext);
 
   return {
-    user,
-    isLoading: status === 'loading',
-    isAuthenticated: status === 'authenticated'
+    user: user ? {
+      id: user.id || '',
+      name: user.name || null,
+      email: user.email || null,
+      avatar: user.avatar || null,
+      isPremium: user.isPremium || false
+    } : null,
+    isLoading,
+    isAuthenticated: !!user
   };
 } 

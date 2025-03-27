@@ -41,10 +41,13 @@ import type { MonetizationSettingsData, PayoutSettingsData } from '@/types/setti
 import ContentUploadForm from '@/components/content/ContentUploadForm';
 import type { Profile } from '@/types/profile';
 import type { Post } from '@/types/post';
-import { SubscriptionPlan } from '@/types/subscription';
 import type { MediaItem } from '@/types/media';
 import type { PrivacySettingsData, ProfileVisibility, AccessLevel } from '@/types/privacy';
 import type { MediaUploadResponse } from '@/types/media';
+import CreatePostForm from '@/components/content/CreatePostForm';
+import { SubscriptionPlan, ExtendedProfile, ContentTypeAccess, Discount } from '@/types/subscription';
+import SubscriptionService from '@/services/subscriptionService';
+import { toast } from 'react-hot-toast';
 
 // Replace the static VRViewer import with dynamic import
 const VRViewer = dynamic(() => import('@/components/VRViewer'), {
@@ -59,9 +62,22 @@ const VRViewer = dynamic(() => import('@/components/VRViewer'), {
 // Types
 interface LocalSubscriptionPlan extends SubscriptionPlan {}
 interface LocalMediaItem extends MediaItem {}
-interface LocalPost extends Omit<Post, 'media' | 'content'> {
-  media?: PostMedia[];
-  content?: string;
+interface LocalPost extends Omit<Post, 'creator' | 'media'> {
+  isEditing: boolean;
+  creator: {
+    id: string;
+    username: string;
+    fullName: string;
+    avatar: string;
+  };
+  media?: {
+    url: string;
+    type: 'vr' | 'image' | 'video';
+    thumbnail?: string;
+    subscriptionPackId: string | null;
+    includeInSubscription: boolean;
+    individualPrice?: number;
+  }[];
 }
 
 interface SubscriptionPlansProps {
@@ -141,89 +157,116 @@ const defaultPrivacySettings: PrivacySettingsData = {
   blockList: []
 };
 
-const mockSubscriptionPlans: SubscriptionPlan[] = [
-  {
-    id: '1',
-    name: 'Basic',
-    price: 9.99,
-    description: 'Basic subscription plan',
-    isActive: true,
-    features: ['Access to basic content', 'Monthly updates'],
-    intervalInDays: 30
-  }
-];
+const defaultContentAccess: ContentTypeAccess = {
+  regularContent: true,
+  premiumVideos: false,
+  vrContent: false,
+  threeSixtyContent: false,
+  liveRooms: false,
+  interactiveModels: false
+};
 
-const mockDiscounts = [
+const mockDiscounts: Discount[] = [
   {
     id: '1',
-    code: 'WELCOME',
+    code: 'WELCOME2024',
     percentage: 20,
-    validUntil: new Date('2024-12-31'),
+    validUntil: '2024-12-31T23:59:59Z',
     isActive: true
   }
 ];
 
+const mockSubscriptionPlans: SubscriptionPlan[] = [
+  {
+    id: '1',
+    name: 'Basic Plan',
+    price: 9.99,
+    description: 'Access to regular content',
+    isActive: true,
+    features: ['Regular content access', 'Monthly updates'],
+    intervalInDays: 30,
+    contentAccess: defaultContentAccess,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    name: 'Premium Plan',
+    price: 19.99,
+    description: 'Access to premium and VR content',
+    isActive: true,
+    features: ['All Basic Plan features', 'Premium content access', 'VR content access'],
+    intervalInDays: 30,
+    contentAccess: {
+      ...defaultContentAccess,
+      premiumVideos: true,
+      vrContent: true
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const mockPosts: LocalPost[] = [
+  {
+    id: '1',
+    title: 'My First Post',
+    description: 'This is my first post on the platform',
+    content: 'Welcome to my profile!',
+    thumbnail: '/images/post1.jpg',
+    createdAt: '2024-03-20T10:00:00Z',
+    updatedAt: '2024-03-20T10:00:00Z',
+    authorId: '123',
+    creator: {
+      id: '123',
+      username: 'creator1',
+      fullName: 'John Creator',
+      avatar: '/images/avatar1.jpg'
+    },
+    likes: 10,
+    comments: 5,
+    views: 100,
+    media: [
+      {
+        url: '/videos/post1.mp4',
+        type: 'video',
+        thumbnail: '/images/thumbnail1.jpg',
+        subscriptionPackId: null,
+        includeInSubscription: true,
+        individualPrice: 0
+      }
+    ],
+    isEditing: false,
+    isPremium: false
+  }
+];
+
 const mockProfile: ExtendedProfile = {
-  id: '1',
-  username: 'johndoe',
-  fullName: 'John Doe',
-  email: 'john@example.com',
-  bio: 'Digital creator and photographer 📸',
-  avatar: 'https://picsum.photos/200/200',
-  coverImage: 'https://picsum.photos/1920/1080',
+  id: '123',
+  username: 'creator1',
+  fullName: 'John Creator',
+  email: 'creator1@example.com',
+  bio: 'Content creator passionate about VR and interactive experiences',
+  avatar: '/images/avatar1.jpg',
+  coverImage: '/images/cover1.jpg',
   isVerified: true,
-  location: 'New York, NY',
-  website: 'https://johndoe.com',
   isCreator: true,
   joinDate: new Date().toISOString(),
-  followers: 1234,
-  following: 567,
-  posts: 42,
-  postsCount: 42,
-  followersCount: 1234,
-  followingCount: 567,
-  totalViews: 50000,
-  totalLikes: 2500,
-  totalComments: 750,
+  followers: 1000,
+  following: 500,
+  posts: mockPosts.length,
+  postsCount: mockPosts.length,
+  followersCount: 1000,
+  followingCount: 500,
+  totalViews: 5000,
+  totalLikes: 250,
+  totalComments: 100,
   subscriptionPlans: mockSubscriptionPlans,
   discounts: mockDiscounts,
   defaultSubscriptionPrice: 9.99,
   freeAccessList: [],
   subscribedTo: []
 };
-
-const mockProfileWithStats: ProfileWithStats = {
-  ...mockProfile,
-  totalRevenue: 1234.56
-};
-
-const mockPosts: LocalPost[] = [
-  {
-    id: '1',
-    title: 'Latest Work',
-    description: 'Check out my latest work! 🎨',
-    thumbnail: 'https://picsum.photos/400/300?random=1',
-    createdAt: new Date().toISOString(),
-    creator: {
-      id: '1',
-      username: 'johndoe',
-      avatar: 'https://picsum.photos/200/200'
-    },
-    media: [{
-      id: '1',
-      type: 'image',
-      url: 'https://picsum.photos/1080/1920?random=1',
-      subscriptionPackId: 'free',
-      includeInSubscription: true,
-      individualPrice: 0.99
-    }],
-    likes: 42,
-    comments: 7,
-    views: 150,
-    isPremium: false,
-    content: 'Check out my latest work! 🎨'
-  }
-];
 
 const defaultProfile: ExtendedProfile = {
   id: '',
@@ -257,7 +300,7 @@ const defaultProfile: ExtendedProfile = {
 const ProfilePage: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
-  const [profile, setProfile] = useState<ExtendedProfile | null>(mockProfile);
+  const [profile, setProfile] = useState<ExtendedProfile>(mockProfile);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<ExtendedProfile>>({});
@@ -271,36 +314,8 @@ const ProfilePage: React.FC = () => {
   const [coverPreview, setCoverPreview] = useState<string>('');
   const [showPostModal, setShowPostModal] = useState(false);
   const [postText, setPostText] = useState('');
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([
-    {
-      id: 'basic',
-      name: 'Basic',
-      price: 9.99,
-      description: 'Access to basic content and features',
-      isActive: true,
-      features: [
-        'Access to basic content',
-        'HD video streaming',
-        'Direct messaging'
-      ],
-      intervalInDays: 30
-    },
-    {
-      id: 'premium',
-      name: 'Premium',
-      price: 19.99,
-      description: 'Full access to all content and premium features',
-      isActive: true,
-      features: [
-        'Access to all content',
-        '4K video streaming',
-        'Priority support',
-        'Early access to new content',
-        'Exclusive behind-the-scenes'
-      ],
-      intervalInDays: 30
-    }
-  ]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [postMedia, setPostMedia] = useState<MediaItem[]>([]);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
   const [showCreatorSettings, setShowCreatorSettings] = useState(false);
@@ -329,6 +344,9 @@ const ProfilePage: React.FC = () => {
   const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
+  const [posts, setPosts] = useState<LocalPost[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated && !loading) {
@@ -403,6 +421,36 @@ const ProfilePage: React.FC = () => {
     setLoading(false);
     }
   }, [isAuthenticated, loading, router, user, router.query.id]);
+
+  useEffect(() => {
+    loadSubscriptionPlans();
+    loadPosts();
+  }, []);
+
+  const loadSubscriptionPlans = async () => {
+    try {
+      setIsLoadingPlans(true);
+      const fetchedPlans = await SubscriptionService.getSubscriptionPlans();
+      // Ensure all plans have contentAccess
+      const plansWithAccess = fetchedPlans.map(plan => ({
+        ...plan,
+        contentAccess: plan.contentAccess || defaultContentAccess
+      }));
+      setSubscriptionPlans(plansWithAccess);
+      setProfile(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          subscriptionPlans: plansWithAccess
+        };
+      });
+    } catch (error) {
+      console.error('Error loading subscription plans:', error);
+      toast.error('Failed to load subscription plans');
+    } finally {
+      setIsLoadingPlans(false);
+    }
+  };
 
   const handleEdit = () => {
     setEditForm({
@@ -688,12 +736,155 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const loadPosts = async () => {
+    try {
+      setIsLoadingPosts(true);
+      const response = await fetch(`/api/posts?userId=${mockProfile.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to load posts');
+      }
+      const data = await response.json();
+      setPosts(data.posts.map((post: Post) => ({
+        ...post,
+        isEditing: false,
+        creator: {
+          id: post.creator.id,
+          username: post.creator.username,
+          fullName: post.creator.fullName || 'Unknown Creator',
+          avatar: post.creator.avatar || '/images/default-avatar.jpg'
+        }
+      })) as LocalPost[]);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      toast.error('Failed to load posts');
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  };
+
   // Add creator dashboard section
   const renderCreatorDashboard = () => {
     return (
       <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6">
-          <CreatorSettings />
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Creator Dashboard</h2>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">Last updated: {new Date().toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-primary-600 dark:text-primary-400">Total Revenue</p>
+                  <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">$0.00</p>
+                </div>
+                <CurrencyDollarIcon className="w-8 h-8 text-primary-500" />
+              </div>
+            </div>
+            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-primary-600 dark:text-primary-400">Active Subscribers</p>
+                  <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">0</p>
+                </div>
+                <UserIcon className="w-8 h-8 text-primary-500" />
+              </div>
+            </div>
+            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-primary-600 dark:text-primary-400">Engagement Rate</p>
+                  <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">0%</p>
+                </div>
+                <StarIcon className="w-8 h-8 text-primary-500" />
+              </div>
+            </div>
+          </div>
+
+          {/* Settings Tabs */}
+          <div className="border-b border-neutral-200 dark:border-neutral-700 mb-6">
+            <nav className="flex space-x-8">
+              {['subscription', 'monetization', 'privacy', 'payout'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSettingsTab(tab as any)}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                    settingsTab === tab
+                      ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                      : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Settings Content */}
+          <div className="space-y-6">
+            {settingsTab === 'subscription' && (
+              <div className="bg-neutral-50 dark:bg-neutral-800/50 p-6 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">Subscription Plans</h3>
+                  <button className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                    <PlusIcon className="w-5 h-5" />
+                    <span>Add Plan</span>
+                  </button>
+                </div>
+                <SubscriptionPlans
+                  plans={subscriptionPlans}
+                  discounts={mockDiscounts}
+                  defaultPrice={profile.defaultSubscriptionPrice}
+                  onSubscribe={() => {}}
+                  isSubscribed={false}
+                  onAddPlan={handleAddPlan}
+                  onUpdatePlan={handleUpdatePlan}
+                  onDeletePlan={handleDeletePlan}
+                />
+              </div>
+            )}
+
+            {settingsTab === 'monetization' && (
+              <div className="bg-neutral-50 dark:bg-neutral-800/50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">Monetization Settings</h3>
+                <MonetizationSettings
+                  settings={monetizationSettings}
+                  onUpdate={handleMonetizationUpdate}
+                />
+              </div>
+            )}
+
+            {settingsTab === 'privacy' && (
+              <div className="bg-neutral-50 dark:bg-neutral-800/50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">Privacy Settings</h3>
+                <PrivacySettings
+                  settings={privacySettings}
+                  onUpdate={handlePrivacyUpdate}
+                />
+              </div>
+            )}
+
+            {settingsTab === 'payout' && (
+              <div className="bg-neutral-50 dark:bg-neutral-800/50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">Payout Settings</h3>
+                <PayoutSettings
+                  settings={payoutSettings}
+                  onUpdate={handlePayoutUpdate}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Save Changes Button */}
+          <div className="mt-6 flex justify-end">
+            <button className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+              Save Changes
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1082,15 +1273,27 @@ const ProfilePage: React.FC = () => {
 
           {/* Content */}
           <div className="mt-6 px-4">
+            {/* Post Creation Form */}
+            <div className="mb-6">
+              <CreatePostForm 
+                subscriptionPlans={subscriptionPlans}
+                onPostCreated={() => {
+                  // Refresh posts after creation
+                  loadPosts();
+                }}
+              />
+            </div>
+
+            {/* Posts Feed */}
             <InfiniteFeed
-              initialPosts={mockPosts}
-              hasMore={false}
-              onLoadMore={() => {}}
+              initialPosts={posts}
+              hasMore={hasMore}
+              onLoadMore={loadMorePosts}
               isSubscribed={true}
             />
-                </div>
-              </div>
-            </div>
+          </div>
+        </div>
+      </div>
     </MainLayout>
   );
 };

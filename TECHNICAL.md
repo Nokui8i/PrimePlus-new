@@ -1,353 +1,269 @@
-# PrimePlus+ Technical Documentation
+# Technical Documentation
 
-## Component Specifications
+## Architecture Overview
 
-### 1. Navigation System
+### Frontend Architecture
 
-#### MainLayout Component
-- **Location**: `/components/layouts/MainLayout.tsx`
-- **State**:
-  - `isOpen`: Controls mobile menu visibility
-  - `isDarkMode`: Theme state
-  - `notifications`: Array of notification objects
-  - `unreadCount`: Number of unread notifications
-- **Features**:
-  - Responsive sidebar navigation
-  - Dark mode toggle
-  - Notification system
-  - User menu dropdown
-  - Search functionality
+#### Core Technologies
+- Next.js 14 with App Router
+- TypeScript for type safety
+- Tailwind CSS for styling
+- React Context + Hooks for state management
+- Framer Motion for animations
+- React Hook Form for form handling
+- Zod for validation
 
-#### NavigationSidebar Component
-- **Location**: `/components/layouts/NavigationSidebar.tsx`
-- **Props**:
-  - `user`: User object with profile data
-  - `onClose`: Mobile menu close handler
-- **Features**:
-  - Navigation links
-  - User profile section
-  - Creator dashboard link
-  - Settings access
-  - Responsive design
+#### Component Structure
+```
+components/
+├── auth/             # Authentication components
+├── common/           # Shared UI components
+├── content/          # Content creation components
+├── creator/          # Creator-specific components
+├── feed/             # Feed components
+├── layouts/          # Layout components
+├── media/            # Media handling components
+├── notifications/    # Notification components
+├── posts/            # Post components
+├── profile/          # Profile components
+├── settings/         # Settings components
+├── subscription/     # Subscription components
+└── vr/               # VR-specific components
+```
 
-### 2. Profile System
+### State Management
 
-#### Profile Page
-- **Location**: `/pages/profile/index.tsx`
-- **State**:
-  - `profile`: User profile data
-  - `posts`: Array of user posts
-  - `isEditing`: Edit mode state
-  - `subscriptionPlans`: Array of subscription plans
-- **Features**:
-  - Profile header with cover image
-  - Avatar with upload functionality
-  - Bio section with markdown support
-  - Content grid with infinite scroll
-  - Subscription plan display
-  - Stats overview
-  - Content upload button
+#### Global State
+- User authentication state
+- Theme preferences
+- Notification state
+- Subscription state
 
-#### ContentUploadForm Component
-- **Location**: `/components/posts/ContentUploadForm.tsx`
-- **State**:
-  - `postText`: Text content
-  - `postMedia`: Array of media files
-  - `selectedMediaIndex`: Currently selected media
-  - `isScheduled`: Post scheduling state
-  - `scheduledDate`: Scheduled post date
-- **Features**:
-  - Text post creation
-  - Multi-media upload
-  - Media preview grid
-  - Access level settings
-    - Free content
-    - Subscription-only
-    - Individual purchase pricing
-  - Post scheduling
-  - Draft saving
-  - Error handling
+#### Local State
+- Form states
+- UI states
+- Component-specific data
 
-### 3. Notification System
+### Data Flow
 
-#### NotificationDropdown Component
-- **Location**: `/components/notifications/NotificationDropdown.tsx`
-- **State**:
-  - `notifications`: Array of notifications
-  - `unreadCount`: Unread notifications count
-  - `isOpen`: Dropdown visibility
-- **Features**:
-  - Real-time updates
-  - Mark as read functionality
-  - Delete notification option
-  - Notification categories
-  - Load more pagination
-  - Click outside to close
+#### API Integration
+- RESTful API endpoints
+- GraphQL queries (planned)
+- Real-time updates with WebSocket
 
-### 4. Creator Dashboard
+#### Data Models
 
-#### CreatorDashboard Component
-- **Location**: `/pages/creator/dashboard.tsx`
-- **State**:
-  - `stats`: Analytics data
-  - `earnings`: Revenue information
-  - `subscribers`: Subscriber data
-  - `recentActivity`: Recent actions
-- **Features**:
-  - Revenue overview
-  - Subscriber analytics
-  - Content performance
-  - Recent activity feed
-  - Quick action buttons
+##### User Model
+```typescript
+interface User {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  avatar: string;
+  bio: string;
+  isCreator: boolean;
+  isVerified: boolean;
+  joinDate: string;
+  followers: number;
+  following: number;
+  posts: number;
+}
+```
 
-### 5. Settings System
+##### Post Model
+```typescript
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  description: string;
+  thumbnail: string;
+  createdAt: string;
+  updatedAt: string;
+  authorId: string;
+  creator: {
+    id: string;
+    username: string;
+    fullName: string;
+    avatar: string;
+  };
+  likes: number;
+  comments: number;
+  views: number;
+  isPremium: boolean;
+  media: MediaItem[];
+}
+```
 
-#### Settings Components
-- **Location**: `/components/settings/*`
-- **Modules**:
-  - `AccountSettings.tsx`
-  - `ProfileSettings.tsx`
-  - `PrivacySettings.tsx`
-  - `NotificationSettings.tsx`
-  - `PaymentSettings.tsx`
-  - `CreatorSettings.tsx`
-- **Features**:
-  - Form validation
-  - Real-time updates
-  - Error handling
-  - Success notifications
-  - Responsive design
+##### Subscription Model
+```typescript
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  isActive: boolean;
+  features: string[];
+  intervalInDays: number;
+  contentAccess: ContentTypeAccess;
+  createdAt: string;
+  updatedAt: string;
+}
+```
 
-### 6. Media Management
+### Content Management
 
-#### MediaUpload Component
-- **Location**: `/components/media/MediaUpload.tsx`
-- **Props**:
-  - `onUpload`: Upload success handler
-  - `onError`: Error handler
-  - `maxSize`: Maximum file size
-  - `allowedTypes`: Allowed file types
-- **Features**:
-  - Drag and drop support
-  - Multi-file upload
-  - Progress tracking
-  - File type validation
-  - Size validation
-  - Preview generation
+#### Media Handling
+- Image optimization with next/image
+- Video transcoding
+- VR content processing
+- Thumbnail generation
+- Storage optimization
 
-#### MediaViewer Component
-- **Location**: `/components/media/MediaViewer.tsx`
-- **Props**:
-  - `media`: Media object
-  - `onClose`: Close handler
-  - `onNext`: Next media handler
-  - `onPrevious`: Previous media handler
-- **Features**:
-  - Image/video display
-  - VR content rendering
-  - Fullscreen support
-  - Navigation controls
-  - Loading states
+#### Content Types
+- Text posts
+- Images
+- Videos
+- VR content
+- Interactive content
+- Live rooms
 
-### 7. Subscription System
+#### Access Control
+- Free content
+- Subscription-only content
+- Individual purchase content
+- Premium content
 
-#### SubscriptionPlans Component
-- **Location**: `/components/subscriptions/SubscriptionPlans.tsx`
-- **State**:
-  - `plans`: Array of subscription plans
-  - `selectedPlan`: Currently selected plan
-  - `isProcessing`: Payment processing state
-- **Features**:
-  - Plan comparison
-  - Price display
-  - Feature lists
-  - Payment processing
-  - Success/error handling
+### Performance Optimization
 
-### 8. Post Components
-
-#### PostCard Component
-- **Location**: `/components/posts/PostCard.tsx`
-- **Props**:
-  - `post`: Post data
-  - `onLike`: Like handler
-  - `onComment`: Comment handler
-  - `onShare`: Share handler
-- **Features**:
-  - Media display
-  - Interaction buttons
-  - Premium content overlay
-  - Share functionality
-  - Comment section
-
-#### PostGrid Component
-- **Location**: `/components/posts/PostGrid.tsx`
-- **Props**:
-  - `posts`: Array of posts
-  - `columns`: Number of columns
-  - `gap`: Grid gap size
-- **Features**:
-  - Responsive grid layout
-  - Infinite scroll
-  - Loading states
-  - Empty state handling
-  - Error boundaries
-
-## API Integration
-
-### Authentication API
-- **Endpoints**:
-  - `/api/auth/login`
-  - `/api/auth/register`
-  - `/api/auth/logout`
-  - `/api/auth/refresh`
-- **Features**:
-  - JWT token handling
-  - Session management
-  - Social auth integration
-  - Password reset
-
-### Profile API
-- **Endpoints**:
-  - `/api/profile/[id]`
-  - `/api/profile/update`
-  - `/api/profile/media`
-- **Features**:
-  - Profile CRUD operations
-  - Media upload handling
-  - Settings management
-  - Stats tracking
-
-### Content API
-- **Endpoints**:
-  - `/api/posts`
-  - `/api/posts/create`
-  - `/api/posts/[id]`
-  - `/api/posts/media`
-- **Features**:
-  - Post CRUD operations
-  - Media processing
-  - Access control
-  - Analytics tracking
-
-### Subscription API
-- **Endpoints**:
-  - `/api/subscriptions`
-  - `/api/subscriptions/create`
-  - `/api/subscriptions/[id]`
-  - `/api/subscriptions/cancel`
-- **Features**:
-  - Plan management
-  - Payment processing
-  - Access control
-  - Analytics
-
-## State Management
-
-### Context Providers
-- **AuthContext**: User authentication state
-- **ThemeContext**: Theme preferences
-- **NotificationContext**: Notification state
-- **SubscriptionContext**: Subscription state
-
-### Custom Hooks
-- `useAuth`: Authentication utilities
-- `useTheme`: Theme management
-- `useNotifications`: Notification handling
-- `useSubscription`: Subscription management
-- `useMediaUpload`: Media upload utilities
-
-## Error Handling
-
-### Error Components
-- **ErrorBoundary**: React error boundary
-- **ErrorPage**: Error display page
-- **ErrorAlert**: Error notification
-- **LoadingError**: Loading state error
-
-### Error Types
-- Network errors
-- Authentication errors
-- Validation errors
-- Media processing errors
-- Payment processing errors
-
-## Testing Strategy
-
-### Unit Tests
-- Component tests
-- Hook tests
-- Utility function tests
-- API integration tests
-
-### Integration Tests
-- User flow tests
-- Payment processing
-- Media upload flow
-- Authentication flow
-
-### E2E Tests
-- User journey tests
-- Critical path testing
-- Performance testing
-- Cross-browser testing
-
-## Performance Optimization
-
-### Image Optimization
+#### Image Optimization
 - Lazy loading
-- Progressive loading
-- Format optimization
-- Size optimization
+- Responsive images
+- WebP format support
+- Blur placeholder
 
-### Code Optimization
-- Code splitting
-- Tree shaking
-- Bundle optimization
-- Cache management
+#### Code Splitting
+- Dynamic imports
+- Route-based splitting
+- Component lazy loading
 
-### Database Optimization
-- Query optimization
-- Indexing strategy
-- Connection pooling
-- Cache implementation
+#### Caching Strategy
+- Static page caching
+- API response caching
+- Media caching
+- User data caching
 
-## Security Measures
+### Security Measures
 
-### Authentication
-- JWT implementation
+#### Authentication
+- JWT token handling
 - Session management
-- CSRF protection
+- OAuth integration
+- 2FA support
+
+#### Authorization
+- Role-based access control
+- Content access rules
+- API endpoint protection
 - Rate limiting
 
-### Data Protection
+#### Data Protection
 - Input validation
 - XSS prevention
-- SQL injection prevention
+- CSRF protection
 - Data encryption
 
-### File Security
-- Upload validation
-- Virus scanning
-- Access control
-- Storage security
+### Testing Strategy
 
-## Monitoring
+#### Unit Tests
+- Component testing
+- Hook testing
+- Utility function testing
+- State management testing
 
-### Performance Monitoring
-- Page load times
-- API response times
-- Resource usage
-- Error rates
+#### Integration Tests
+- API integration
+- Authentication flow
+- Content creation flow
+- Subscription flow
 
-### User Analytics
-- User behavior
-- Feature usage
+#### E2E Tests
+- User journeys
+- Critical paths
+- Error scenarios
+- Performance testing
+
+### Deployment
+
+#### Infrastructure
+- Vercel deployment
+- PostgreSQL database
+- AWS S3 storage
+- CDN integration
+
+#### CI/CD Pipeline
+- Automated testing
+- Code quality checks
+- Build optimization
+- Deployment automation
+
+#### Monitoring
 - Error tracking
-- Performance metrics
+- Performance monitoring
+- User analytics
+- Server metrics
 
-### System Health
-- Server status
-- Database health
-- Storage capacity
-- Service status 
+### Development Guidelines
+
+#### Code Style
+- ESLint configuration
+- Prettier formatting
+- TypeScript strict mode
+- Component structure
+
+#### Git Workflow
+- Feature branches
+- Pull request reviews
+- Semantic versioning
+- Changelog maintenance
+
+#### Documentation
+- Component documentation
+- API documentation
+- Type definitions
+- Usage examples
+
+### Future Improvements
+
+#### Planned Features
+- GraphQL implementation
+- Real-time updates
+- Advanced analytics
+- Mobile app support
+
+#### Technical Debt
+- Performance optimization
+- Code refactoring
+- Test coverage
+- Documentation updates
+
+### Support and Maintenance
+
+#### Bug Tracking
+- Issue management
+- Bug reporting
+- Feature requests
+- Version tracking
+
+#### Updates
+- Dependency updates
+- Security patches
+- Feature releases
+- Documentation updates
+
+#### Monitoring
+- Error tracking
+- Performance monitoring
+- User analytics
+- Server metrics 

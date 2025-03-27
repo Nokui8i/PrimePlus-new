@@ -14,13 +14,16 @@ export interface PostFormData {
 export interface Post {
   id: string;
   title: string;
-  content: string;
   description: string;
+  content: string;
   thumbnail: string;
   createdAt: string;
+  updatedAt: string;
+  authorId: string;
   creator: {
     id: string;
     username: string;
+    fullName: string;
     avatar: string;
   };
   likes: number;
@@ -28,8 +31,11 @@ export interface Post {
   views: number;
   isPremium: boolean;
   media?: {
-    type: 'image' | 'video' | 'vr';
     url: string;
+    type: 'vr' | 'image' | 'video';
     thumbnail?: string;
+    subscriptionPackId?: string | null;
+    includeInSubscription?: boolean;
+    individualPrice?: number;
   }[];
 } 
