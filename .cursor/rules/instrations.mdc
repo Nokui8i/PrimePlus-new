@@ -1,0 +1,129 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# PrimePlus+ Platform Implementation Rules
+
+## Core Requirements
+1. ENGLISH ONLY - No Hebrew or any other non-English text anywhere in the application
+2. NO DEMO CONTENT - Build a production-ready application without placeholder content
+3. NO DUPLICATE PAGES - Each functional area should have exactly one implementation
+4. CLEAN CODE - Well-structured, properly typed TypeScript with clear component separation
+5. COMPLETE FEATURES - Implement all planned features before marking as complete
+6. PROPER TESTING - Include unit tests and integration tests for critical features
+7. SECURITY FIRST - Implement proper authentication and authorization throughout
+
+## Design Approach
+1. Take inspiration from OnlyFans UX patterns without directly copying their design
+2. Maintain a unique visual identity while leveraging familiar layout structures
+3. Focus on creating a clean, modern interface with intuitive navigation
+4. Ensure responsive design that works well on mobile, tablet, and desktop
+5. Implement proper loading states and error handling
+6. Use consistent spacing and typography throughout
+7. Support both light and dark modes
+
+## Technical Requirements
+1. Use Next.js with TypeScript as the foundation
+2. Implement styling with Tailwind CSS
+3. Maintain proper file structure with clear separation of concerns
+4. Ensure page components are in the correct locations
+5. Create reusable UI components in the components directory
+6. Use Prisma for database operations
+7. Implement proper API error handling
+8. Use environment variables for configuration
+9. Implement proper logging and monitoring
+
+## Page Structure
+Implement these core pages:
+1. Login/Landing Page
+2. Dashboard/Feed
+3. Profile and Profile Editor
+4. Messages
+5. Notifications
+6. Collections/Bookmarks
+7. Subscriptions
+8. Settings
+9. Content Creation
+   - Text post creation
+   - Media post creation
+   - Poll creation
+   - Draft management
+   - Post scheduling
+10. Creator Dashboard
+11. Analytics
+12. Media Management
+13. Content Moderation
+
+## Component Guidelines
+1. Create a consistent NavigationSidebar for authenticated pages
+2. Implement a clean, modern design for forms and inputs
+3. Use properly styled cards for content display
+4. Create button variants that match the platform's design language
+5. Ensure avatar components handle missing images gracefully
+6. Implement proper loading states for all async operations
+7. Add error boundaries for graceful error handling
+8. Use proper form validation
+9. Implement proper accessibility features
+
+## User Experience
+1. Provide clear visual feedback for user actions
+2. Implement intuitive navigation between related pages
+3. Ensure proper loading states during data fetching
+4. Add appropriate error handling for form submissions
+5. Maintain consistent spacing and layout across the platform
+6. Implement proper form validation feedback
+7. Add tooltips for complex features
+8. Ensure proper keyboard navigation
+9. Implement proper mobile gestures
+
+## Database Guidelines
+1. Use Prisma for all database operations
+2. Implement proper indexing for frequently queried fields
+3. Use appropriate data types for each field
+4. Implement proper relationships between models
+5. Include timestamps for all relevant models
+6. Use soft deletes where appropriate
+7. Implement proper data validation
+8. Use transactions for complex operations
+9. Implement proper error handling for database operations
+
+## API Guidelines
+1. Use RESTful API design principles
+2. Implement proper HTTP methods (GET, POST, PUT, DELETE)
+3. Use appropriate status codes for responses
+4. Implement proper error responses
+5. Use proper request/response validation
+6. Implement rate limiting
+7. Use proper authentication/authorization
+8. Implement proper logging
+9. Use proper API versioning
+
+## Content Creation Guidelines
+1. Support multiple content types (text, media, polls)
+2. Implement proper media upload handling
+3. Support draft saving and auto-recovery
+4. Implement post scheduling
+5. Support tag management
+6. Implement exclusive content toggle
+7. Support media preview and editing
+8. Implement proper validation for all fields
+9. Support batch operations where appropriate
+
+## Next Steps
+1. Implement Collections/Bookmarks page
+2. Complete Media Management system
+3. Implement Content Moderation tools
+4. Add Analytics dashboard
+5. Enhance Subscription management
+6. Implement Payment processing
+7. Add advanced search features
+8. Implement VR content support
+9. Add mobile app support
+
+Remember to scan the entire codebase to understand the existing structure before making changes. All implementations should be production-ready without placeholder content.
