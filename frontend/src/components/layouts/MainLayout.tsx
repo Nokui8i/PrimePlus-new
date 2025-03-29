@@ -50,7 +50,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700 shadow-lg"
+          className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 bg-white dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700 shadow-lg"
         >
           <div className="flex flex-col h-full">
             {/* Logo */}
@@ -134,14 +134,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     transition={{ duration: 0.2 }}
                     className="pl-10 space-y-1"
                   >
-                    {user?.role !== 'CREATOR' && (
-                      <motion.div whileHover={{ x: 5 }} transition={{ duration: 0.2 }}>
-                        <Link href="/become-creator" className={`nav-link ${isActive('/become-creator') ? 'nav-link-active' : 'nav-link-inactive'}`}>
-                          <StarIcon className="nav-icon" />
-                          <span>Become Creator</span>
-                        </Link>
-                      </motion.div>
-                    )}
+                    {/* Always show Creator Dashboard during development */}
+                    <motion.div whileHover={{ x: 5 }} transition={{ duration: 0.2 }}>
+                      <Link href="/creator/dashboard" className={`nav-link ${isActive('/creator/dashboard') ? 'nav-link-active' : 'nav-link-inactive'}`}>
+                        <StarIcon className="nav-icon" />
+                        <span>Creator Dashboard</span>
+                      </Link>
+                    </motion.div>
                     
                     <motion.div whileHover={{ x: 5 }} transition={{ duration: 0.2 }}>
                       <Link href="/settings" className={`nav-link ${isActive('/settings') ? 'nav-link-active' : 'nav-link-inactive'}`}>

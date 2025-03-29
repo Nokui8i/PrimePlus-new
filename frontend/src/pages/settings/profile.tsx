@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
-import Layout from '@/components/layouts/Layout';
+import MainLayout from '@/components/layouts/MainLayout';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 const ProfileSettings = () => {
@@ -46,7 +46,7 @@ const ProfileSettings = () => {
   }
 
   return (
-    <Layout>
+    <MainLayout>
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
         {/* Header */}
         <div className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
@@ -193,7 +193,7 @@ const ProfileSettings = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </MainLayout>
   );
 };
 

@@ -1,14 +1,6 @@
 import React from 'react';
 import { StarIcon, CheckIcon } from '@heroicons/react/24/outline';
-
-interface SubscriptionPack {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  isActive: boolean;
-  features: string[];
-}
+import type { SubscriptionPlan, ContentTypeAccess } from '@/services/subscriptionService';
 
 interface Discount {
   id: string;
@@ -19,14 +11,14 @@ interface Discount {
 }
 
 interface SubscriptionPlansProps {
-  plans: SubscriptionPack[];
+  plans: SubscriptionPlan[];
   discounts?: Discount[];
   defaultPrice?: number;
-  onSubscribe?: (packId: string) => void;
+  onSubscribe?: (planId: string) => void;
   isSubscribed?: boolean;
-  onAddPlan: (newPack: Partial<SubscriptionPack>) => void;
-  onUpdatePlan: (packId: string, updates: Partial<SubscriptionPack>) => void;
-  onDeletePlan: (packId: string) => void;
+  onAddPlan: (newPlan: Partial<SubscriptionPlan>) => void;
+  onUpdatePlan: (planId: string, updates: Partial<SubscriptionPlan>) => void;
+  onDeletePlan: (planId: string) => void;
 }
 
 const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
@@ -155,7 +147,7 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
               <div className="flex items-center justify-center mb-4">
                 <span className="text-3xl font-bold text-neutral-900 dark:text-white">$</span>
                 <span className="text-5xl font-bold text-neutral-900 dark:text-white">
-                  {(plan.price / (plan.features.length / 30)).toFixed(2)}
+                  {plan.price.toFixed(2)}
                 </span>
                 <span className="text-neutral-500 ml-2">/mo</span>
               </div>
@@ -165,7 +157,7 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                     Save {bestDiscount.percentage}%
                   </span>
                   <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-                    ${getDiscountedPrice(plan.price / (plan.features.length / 30)).toFixed(2)}/mo with code
+                    ${getDiscountedPrice(plan.price).toFixed(2)}/mo with code
                   </p>
                 </div>
               )}
@@ -180,28 +172,22 @@ const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
               </button>
             </div>
             <div className="mt-6 space-y-4">
-              <div className="flex items-center">
-                <CheckIcon className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-neutral-600 dark:text-neutral-400">
-                  {plan.features.length} days of access
-                </span>
-              </div>
-              <div className="flex items-center">
-                <CheckIcon className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-neutral-600 dark:text-neutral-400">Full access to all content</span>
-              </div>
-              <div className="flex items-center">
-                <CheckIcon className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-neutral-600 dark:text-neutral-400">Direct messaging</span>
-              </div>
-              <div className="flex items-center">
-                <CheckIcon className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-neutral-600 dark:text-neutral-400">HD video streaming</span>
-              </div>
-              {plan.features.length > 3 && (
+              {plan.features.map((feature, index) => (
+                <div key={index} className="flex items-center">
+                  <CheckIcon className="w-5 h-5 text-green-500 mr-2" />
+                  <span className="text-neutral-600 dark:text-neutral-400">{feature}</span>
+                </div>
+              ))}
+              {plan.contentAccess.premiumVideos && (
                 <div className="flex items-center">
                   <StarIcon className="w-5 h-5 text-yellow-500 mr-2" />
-                  <span className="text-neutral-600 dark:text-neutral-400">Priority support</span>
+                  <span className="text-neutral-600 dark:text-neutral-400">Premium video access</span>
+                </div>
+              )}
+              {plan.contentAccess.vrContent && (
+                <div className="flex items-center">
+                  <StarIcon className="w-5 h-5 text-yellow-500 mr-2" />
+                  <span className="text-neutral-600 dark:text-neutral-400">VR content access</span>
                 </div>
               )}
             </div>

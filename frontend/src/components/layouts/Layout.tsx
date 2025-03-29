@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
 import Head from 'next/head';
-import Navigation from './Navigation';
+import NavigationSidebar from './NavigationSidebar';
 import Footer from './Footer';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +19,8 @@ const Layout: React.FC<LayoutProps> = ({
   hideFooter = false,
   hideNavbar = false
 }) => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <>
       <Head>
@@ -28,10 +31,12 @@ const Layout: React.FC<LayoutProps> = ({
       </Head>
       
       <div className="min-h-screen flex flex-col">
-        {!hideNavbar && <Navigation />}
+        {isAuthenticated && <NavigationSidebar />}
         
-        <main className="flex-grow">
-          {children}
+        <main className={isAuthenticated ? 'pl-64 pt-16' : ''}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </div>
         </main>
         
         {!hideFooter && <Footer />}

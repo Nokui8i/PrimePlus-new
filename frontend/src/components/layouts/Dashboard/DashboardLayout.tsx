@@ -1,8 +1,9 @@
 import React, { ReactNode, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import Navigation from '../Navigation';
+import NavigationSidebar from '../NavigationSidebar';
 import DashboardSidebar from './DashboardSidebar';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -38,7 +40,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </Head>
       
       <div className="min-h-screen bg-gray-50">
-        <Navigation />
+        <NavigationSidebar />
         
         <div className="flex">
           {/* Sidebar for large screens */}

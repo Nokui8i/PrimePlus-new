@@ -327,8 +327,8 @@ const HomePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Suggestions - lower z-index */}
-                <div className="bg-white/70 dark:bg-neutral-800/70 backdrop-blur-sm rounded-lg shadow-sm border border-neutral-200/50 dark:border-neutral-700/50 relative z-[1]">
+                {/* Suggested Creators */}
+                <div className="bg-white/70 dark:bg-neutral-800/70 backdrop-blur-sm rounded-lg shadow-sm border border-neutral-200/50 dark:border-neutral-700/50">
                   <div className="p-2 sm:p-3">
                     <h2 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-neutral-900 dark:text-neutral-100">Suggested Creators</h2>
                     <div className="space-y-2 sm:space-y-3">

@@ -124,4 +124,13 @@ export interface ContentStatistics {
   viewsByDay: Array<{ date: string; count: number }>;
   viewsByLocation: Array<{ location: string; count: number }>;
   topReferrers: Array<{ source: string; count: number }>;
+}
+
+export interface ContentTypeAccess {
+  regularContent: boolean;
+  premiumVideos: boolean;
+  vrContent: boolean;
+  threeSixtyContent: boolean;
+  liveRooms: boolean;
+  interactiveModels: boolean;
 } 

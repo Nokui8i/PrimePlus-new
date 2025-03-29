@@ -144,16 +144,16 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl mx-auto space-y-4">
       {/* Filter Tabs */}
-      <div className="flex space-x-2 mb-4">
-        <button className="px-4 py-1 bg-primary-600 text-white rounded-full text-sm font-medium">
+      <div className="flex space-x-2 mb-3">
+        <button className="px-3 py-1 bg-primary-600 text-white rounded-full text-xs font-medium">
           All
         </button>
-        <button className="px-4 py-1 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full text-sm font-medium">
+        <button className="px-3 py-1 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full text-xs font-medium">
           Photos
         </button>
-        <button className="px-4 py-1 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full text-sm font-medium">
+        <button className="px-3 py-1 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full text-xs font-medium">
           Videos
         </button>
       </div>
@@ -163,26 +163,27 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
           key={post.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm overflow-hidden"
+          className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm overflow-hidden border border-neutral-200 dark:border-neutral-700"
         >
           {/* Post Header */}
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Image
-                src={post.creator.avatar}
-                alt={post.creator.username}
-                width={40}
-                height={40}
-                className="rounded-full"
-              />
+          <div className="p-2.5 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center space-x-2">
+              <div className="relative w-8 h-8">
+                <Image
+                  src={post.creator.avatar}
+                  alt={post.creator.username}
+                  fill
+                  className="rounded-full object-cover"
+                />
+              </div>
               <div>
                 <Link 
                   href={`/profile/${post.creator.username}`}
-                  className="font-medium text-neutral-900 dark:text-neutral-100 hover:text-primary-600 dark:hover:text-primary-400"
+                  className="text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:text-primary-600 dark:hover:text-primary-400"
                 >
                   {post.creator.username}
                 </Link>
-                <p className="text-sm text-neutral-500">
+                <p className="text-xs text-neutral-500">
                   {new Date(post.createdAt).toLocaleDateString()}
                 </p>
               </div>
@@ -190,8 +191,8 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
           </div>
 
           {/* Post Description */}
-          <div className="px-4 pb-4">
-            <p className="text-neutral-900 dark:text-white whitespace-pre-wrap">
+          <div className="px-2.5 py-2">
+            <p className="text-sm text-neutral-900 dark:text-white whitespace-pre-wrap">
               {post.description}
             </p>
           </div>
@@ -219,17 +220,18 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
                           className="object-cover"
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <SparklesIcon className="w-12 h-12 text-white" />
+                          <SparklesIcon className="w-6 h-6 text-white" />
                         </div>
                       </div>
                     ) : (
-                      <Image
-                        src={media.url}
-                        alt="Post content"
-                        width={800}
-                        height={600}
-                        className="w-full aspect-[4/3] object-cover"
-                      />
+                      <div className="relative aspect-video">
+                        <Image
+                          src={media.url}
+                          alt="Post content"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
                     )}
                   </div>
 
@@ -239,24 +241,24 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
                       <div className="text-center text-white p-4">
                         {media.subscriptionPackId === 'individual' ? (
                           <>
-                            <CurrencyDollarIcon className="w-12 h-12 mx-auto mb-2" />
-                            <p className="text-xl font-bold mb-2">${media.individualPrice}</p>
+                            <CurrencyDollarIcon className="w-6 h-6 mx-auto mb-1.5" />
+                            <p className="text-base font-bold mb-1.5">${media.individualPrice}</p>
                             <button
                               onClick={() => onPurchaseContent?.(post.id, index)}
-                              className="px-6 py-2 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition-colors"
+                              className="px-3 py-1 bg-primary-600 text-white rounded-full text-xs font-medium hover:bg-primary-700 transition-colors"
                             >
                               Purchase Content
                             </button>
                           </>
                         ) : (
                           <>
-                            <LockClosedIcon className="w-12 h-12 mx-auto mb-2" />
-                            <p className="text-xl font-bold mb-2">
+                            <LockClosedIcon className="w-6 h-6 mx-auto mb-1.5" />
+                            <p className="text-base font-bold mb-1.5">
                               Subscription Required
                             </p>
                             <button
                               onClick={onSubscribe}
-                              className="px-6 py-2 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition-colors"
+                              className="px-3 py-1 bg-primary-600 text-white rounded-full text-xs font-medium hover:bg-primary-700 transition-colors"
                             >
                               Subscribe to Access
                             </button>
@@ -269,7 +271,7 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
                   {/* Content Type Badge */}
                   <div className="absolute top-2 right-2">
                     <span className={`
-                      px-3 py-1 rounded-full text-sm font-medium
+                      px-2 py-0.5 rounded-full text-xs font-medium
                       ${media.subscriptionPackId === 'free' ? 'bg-green-100 text-green-800' :
                         media.subscriptionPackId === 'individual' ? 'bg-purple-100 text-purple-800' :
                         'bg-blue-100 text-blue-800'}
@@ -287,26 +289,26 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
           )}
 
           {/* Post Actions */}
-          <div className="p-4 flex items-center justify-between border-t border-neutral-200 dark:border-neutral-700">
-            <div className="flex items-center space-x-4">
+          <div className="p-2.5 flex items-center justify-between border-t border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center space-x-3">
               <button
                 onClick={() => handleLike(post.id)}
                 className="flex items-center text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
               >
                 {liked[post.id] ? (
-                  <HeartIconSolid className="w-6 h-6 text-red-600" />
+                  <HeartIconSolid className="w-4 h-4 text-red-600" />
                 ) : (
-                  <HeartIcon className="w-6 h-6" />
+                  <HeartIcon className="w-4 h-4" />
                 )}
-                <span className="ml-1">{post.likes + (liked[post.id] ? 1 : 0)}</span>
+                <span className="ml-1 text-xs">{post.likes + (liked[post.id] ? 1 : 0)}</span>
               </button>
               <button className="flex items-center text-neutral-600 dark:text-neutral-400">
-                <ChatBubbleLeftIcon className="w-6 h-6" />
-                <span className="ml-1">{post.comments}</span>
+                <ChatBubbleLeftIcon className="w-4 h-4" />
+                <span className="ml-1 text-xs">{post.comments}</span>
               </button>
               <div className="flex items-center text-neutral-600 dark:text-neutral-400">
-                <EyeIcon className="w-6 h-6" />
-                <span className="ml-1">{post.views}</span>
+                <EyeIcon className="w-4 h-4" />
+                <span className="ml-1 text-xs">{post.views}</span>
               </div>
             </div>
             <button
@@ -314,9 +316,9 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
               className="text-neutral-600 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400"
             >
               {saved[post.id] ? (
-                <BookmarkIconSolid className="w-6 h-6 text-primary-600" />
+                <BookmarkIconSolid className="w-4 h-4 text-primary-600" />
               ) : (
-                <BookmarkIcon className="w-6 h-6" />
+                <BookmarkIcon className="w-4 h-4" />
               )}
             </button>
           </div>
@@ -325,17 +327,17 @@ const InfiniteFeed: React.FC<InfiniteFeedProps> = ({
 
       {/* Loading State */}
       {loading && (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="flex justify-center items-center py-6">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
         </div>
       )}
 
       {/* Intersection Observer Target */}
-      <div ref={loadingRef} className="h-10" />
+      <div ref={loadingRef} className="h-8" />
 
       {/* End of Feed */}
       {!hasMorePosts && (
-        <div className="text-center py-8 text-neutral-500">
+        <div className="text-center py-6 text-neutral-500 text-sm">
           You've reached the end of your feed
         </div>
       )}

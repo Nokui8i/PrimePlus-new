@@ -1,387 +1,630 @@
 import React, { useState, useEffect } from 'react';
-import type { NextPage } from 'next';
-import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/router';
+import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layouts/MainLayout';
 import {
-  UserIcon,
   ChartBarIcon,
-  PhotoIcon,
-  VideoCameraIcon,
   CurrencyDollarIcon,
-  UserGroupIcon,
-  PlusIcon,
-  ArrowUpTrayIcon,
-  EllipsisHorizontalIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  ChatBubbleLeftIcon,
   DocumentTextIcon,
+  UserGroupIcon,
+  Cog6ToothIcon,
+  VideoCameraIcon,
+  PhotoIcon,
+  CubeIcon,
+  PlusIcon,
+  ArrowTrendingUpIcon,
+  CalendarIcon,
+  CheckIcon,
+  XMarkIcon,
+  PencilIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { ServiceSubscriptionPlan, ContentTypeAccess } from '@/services/subscriptionService';
+import { getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan } from '@/services/subscriptionService';
+import { toast } from 'react-hot-toast';
+import type { MonetizationSettingsData, PayoutSettingsData } from '@/types/settings';
+import type { PrivacySettingsData } from '@/types/privacy';
 
-interface StatCard {
-  title: string;
-  value: string;
-  change: number;
-  icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>;
-  color: string;
+// Types
+interface DashboardStats {
+  totalRevenue: number;
+  totalSubscribers: number;
+  totalPosts: number;
+  totalViews: number;
 }
 
-interface ContentItem {
+interface LocalDiscount {
   id: string;
-  title: string;
-  type: 'text' | 'photo' | 'video' | 'vr';
-  thumbnail?: string;
-  date: string;
-  views: number;
-  likes: number;
-  comments: number;
+  code: string;
+  percentage: number;
+  validUntil: string;
+  isActive: boolean;
 }
 
-interface Subscriber {
-  id: string;
+interface PlanEditForm {
   name: string;
-  username: string;
-  avatar: string;
-  date: string;
-  tier: string;
+  price: number;
+  description: string;
+  features: string[];
+  contentAccess: ContentTypeAccess;
 }
 
-const CreatorDashboardPage: NextPage = () => {
+const defaultContentAccess: ContentTypeAccess = {
+  regularContent: true,
+  premiumVideos: false,
+  vrContent: false,
+  threeSixtyContent: false,
+  liveRooms: false,
+  interactiveModels: false
+};
+
+const defaultMonetizationSettings: MonetizationSettingsData = {
+  enableTips: true,
+  minTipAmount: 1,
+  maxTipAmount: 1000,
+  enablePayPerView: true,
+  minPrice: 1,
+  maxPrice: 100
+};
+
+const defaultPrivacySettings: PrivacySettingsData = {
+  profileVisibility: 'public',
+  showActivity: true,
+  showFollowers: true,
+  showFollowing: true,
+  allowMessages: 'everyone',
+  allowComments: 'everyone',
+  blockList: []
+};
+
+const CreatorDashboard: React.FC = () => {
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState<StatCard[]>([]);
-  const [recentContent, setRecentContent] = useState<ContentItem[]>([]);
-  const [recentSubscribers, setRecentSubscribers] = useState<Subscriber[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'subscriptions' | 'analytics' | 'settings'>('overview');
+  const [subscriptionPlans, setSubscriptionPlans] = useState<ServiceSubscriptionPlan[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<ServiceSubscriptionPlan | null>(null);
+  const [editForm, setEditForm] = useState<PlanEditForm>({
+    name: '',
+    price: 0,
+    description: '',
+    features: [],
+    contentAccess: defaultContentAccess
+  });
+  const [stats, setStats] = useState<DashboardStats>({
+    totalRevenue: 0,
+    totalSubscribers: 0,
+    totalPosts: 0,
+    totalViews: 0
+  });
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setIsLoading(true);
-      try {
-        const [statsResponse, contentResponse, subscribersResponse] = await Promise.all([
-          fetch('/api/creator/stats'),
-          fetch('/api/creator/content/recent'),
-          fetch('/api/creator/subscribers/recent')
-        ]);
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
-        const [statsData, contentData, subscribersData] = await Promise.all([
-          statsResponse.json(),
-          contentResponse.json(),
-          subscribersResponse.json()
-        ]);
-
-        setStats(statsData);
-        setRecentContent(contentData);
-        setRecentSubscribers(subscribersData);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        setIsLoading(false);
-      }
-    };
-
-    fetchDashboardData();
+  useEffect(() => {
+    loadSubscriptionPlans();
+    // Load other initial data here
   }, []);
 
-  // Format date to readable string
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
-  
-  // Get icon for content type
-  const getContentTypeIcon = (type: string) => {
-    switch (type) {
-      case 'photo':
-        return <PhotoIcon className="w-5 h-5" />;
-      case 'video':
-        return <VideoCameraIcon className="w-5 h-5" />;
-      case 'vr':
-        return <UserIcon className="w-5 h-5" />;
-      default:
-        return <DocumentTextIcon className="w-5 h-5" />;
+  const loadSubscriptionPlans = async () => {
+    try {
+      const plans = await getSubscriptionPlans();
+      setSubscriptionPlans(plans);
+    } catch (error) {
+      console.error('Error loading subscription plans:', error);
+      toast.error('Failed to load subscription plans');
     }
   };
 
-  return (
-    <MainLayout title="Creator Dashboard">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Dashboard Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">Creator Dashboard</h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              Manage your content and monitor your performance
-            </p>
-          </div>
-          
-          <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
-            <Link 
-              href="/create-post" 
-              className="btn-primary py-2 px-4 flex items-center"
-            >
-              <PlusIcon className="w-5 h-5 mr-1.5" />
-              Create Post
-            </Link>
-            
-            <Link 
-              href="/analytics" 
-              className="btn-secondary py-2 px-4 flex items-center"
-            >
-              <ChartBarIcon className="w-5 h-5 mr-1.5" />
-              Full Analytics
-            </Link>
+  const handleAddPlan = async (newPlan: Partial<ServiceSubscriptionPlan>) => {
+    try {
+      const createdPlan = await createSubscriptionPlan(newPlan);
+      setSubscriptionPlans(prev => [...prev, createdPlan]);
+      toast.success('Subscription plan created successfully');
+    } catch (error) {
+      console.error('Error creating subscription plan:', error);
+      toast.error('Failed to create subscription plan');
+    }
+  };
+
+  const handleUpdatePlan = async (planId: string, updates: Partial<ServiceSubscriptionPlan>) => {
+    try {
+      await updateSubscriptionPlan(planId, updates);
+      setSubscriptionPlans(plans =>
+        plans.map(plan =>
+          plan.id === planId
+            ? { ...plan, ...updates, updatedAt: new Date().toISOString() }
+            : plan
+        )
+      );
+      toast.success('Subscription plan updated successfully');
+    } catch (error) {
+      console.error('Error updating subscription plan:', error);
+      toast.error('Failed to update subscription plan');
+    }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    try {
+      await deleteSubscriptionPlan(planId);
+      setSubscriptionPlans(plans => plans.filter(plan => plan.id !== planId));
+      toast.success('Subscription plan deleted successfully');
+    } catch (error) {
+      console.error('Error deleting subscription plan:', error);
+      toast.error('Failed to delete subscription plan');
+    }
+  };
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Revenue</p>
+              <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">${stats.totalRevenue.toFixed(2)}</h3>
+            </div>
+            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <CurrencyDollarIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
           </div>
         </div>
-        
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <div key={index} className="bg-white dark:bg-neutral-800 rounded-xl shadow p-6">
-              <div className="flex items-center">
-                <div className={`w-12 h-12 rounded-lg ${stat.color} flex items-center justify-center`}>
-                  <stat.icon className="w-6 h-6" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                    {stat.title}
-                  </h3>
-                  <div className="mt-1 flex items-baseline">
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
-                      {stat.value}
-                    </p>
-                    <p className={`ml-2 flex items-center text-sm ${
-                      stat.change >= 0 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {stat.change >= 0 ? (
-                        <ArrowUpIcon className="w-3 h-3 mr-0.5 flex-shrink-0" />
-                      ) : (
-                        <ArrowDownIcon className="w-3 h-3 mr-0.5 flex-shrink-0" />
-                      )}
-                      {Math.abs(stat.change)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
+
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Subscribers</p>
+              <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{stats.totalSubscribers}</h3>
             </div>
-          ))}
-        </div>
-        
-        {/* Recent Content and Subscribers */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Content */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-neutral-800 rounded-xl shadow overflow-hidden">
-              <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-700 flex justify-between items-center">
-                <h2 className="text-lg font-medium text-neutral-900 dark:text-white">Recent Content</h2>
-                <Link href="/content" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                  View All
-                </Link>
-              </div>
-              
-              {isLoading ? (
-                <div className="p-6 flex justify-center">
-                  <div className="w-10 h-10 border-4 border-neutral-200 dark:border-neutral-700 border-t-primary-600 rounded-full animate-spin"></div>
-                </div>
-              ) : (
-                <div>
-                  {recentContent.length > 0 ? (
-                    <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                      {recentContent.map((content) => (
-                        <div key={content.id} className="px-6 py-4 flex items-start">
-                          {content.thumbnail ? (
-                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-neutral-100 dark:bg-neutral-700">
-                              <Image
-                                src={content.thumbnail}
-                                alt={content.title}
-                                width={64}
-                                height={64}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-16 h-16 rounded-lg flex-shrink-0 bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center">
-                              {getContentTypeIcon(content.type)}
-                            </div>
-                          )}
-                          
-                          <div className="ml-4 flex-1 min-w-0">
-                            <div className="flex items-center">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                content.type === 'photo' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                                content.type === 'video' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
-                                content.type === 'vr' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300'
-                              }`}>
-                                {content.type.toUpperCase()}
-                              </span>
-                            </div>
-                            
-                            <h3 className="mt-1 text-sm font-medium text-neutral-900 dark:text-white truncate">
-                              <Link href={`/edit-post/${content.id}`} className="hover:text-primary-600 transition">
-                                {content.title}
-                              </Link>
-                            </h3>
-                            
-                            <div className="mt-1 flex items-center text-xs text-neutral-500 dark:text-neutral-400">
-                              <span>{formatDate(content.date)}</span>
-                              <span className="mx-1.5">•</span>
-                              <span>{content.views} views</span>
-                              <span className="mx-1.5">•</span>
-                              <span>{content.likes} likes</span>
-                            </div>
-                          </div>
-                          
-                          <div className="ml-4">
-                            <button className="text-neutral-400 hover:text-neutral-500 dark:hover:text-neutral-300">
-                              <EllipsisHorizontalIcon className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-6 text-center">
-                      <p className="text-neutral-600 dark:text-neutral-400">
-                        No content yet. Create your first post!
-                      </p>
-                      <Link 
-                        href="/create-post" 
-                        className="mt-4 btn-primary py-2 px-4 inline-flex items-center"
-                      >
-                        <PlusIcon className="w-5 h-5 mr-1.5" />
-                        Create Post
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <UserGroupIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
-          
-          {/* Recent Subscribers */}
-          <div>
-            <div className="bg-white dark:bg-neutral-800 rounded-xl shadow overflow-hidden">
-              <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-700 flex justify-between items-center">
-                <h2 className="text-lg font-medium text-neutral-900 dark:text-white">Recent Subscribers</h2>
-                <Link href="/subscriptions" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                  View All
-                </Link>
-              </div>
-              
-              {isLoading ? (
-                <div className="p-6 flex justify-center">
-                  <div className="w-10 h-10 border-4 border-neutral-200 dark:border-neutral-700 border-t-primary-600 rounded-full animate-spin"></div>
-                </div>
-              ) : (
-                <div>
-                  {recentSubscribers.length > 0 ? (
-                    <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                      {recentSubscribers.map((subscriber) => (
-                        <div key={subscriber.id} className="px-6 py-4 flex items-center">
-                          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                            <Image
-                              src={subscriber.avatar}
-                              alt={subscriber.name}
-                              width={40}
-                              height={40}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          
-                          <div className="ml-3 flex-1 min-w-0">
-                            <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                              {subscriber.name}
-                            </p>
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                              @{subscriber.username}
-                            </p>
-                          </div>
-                          
-                          <div className="ml-3 flex flex-col items-end">
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                              {formatDate(subscriber.date)}
-                            </span>
-                            <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300">
-                              {subscriber.tier}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-6 text-center">
-                      <p className="text-neutral-600 dark:text-neutral-400">
-                        No subscribers yet. Share your profile to get started!
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+        </div>
+
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Posts</p>
+              <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{stats.totalPosts}</h3>
             </div>
-            
-            {/* Quick Actions */}
-            <div className="mt-6 bg-white dark:bg-neutral-800 rounded-xl shadow overflow-hidden">
-              <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-700">
-                <h2 className="text-lg font-medium text-neutral-900 dark:text-white">Quick Actions</h2>
-              </div>
-              
-              <div className="p-6 grid grid-cols-1 gap-4">
-                <Link 
-                  href="/settings/subscription-tiers" 
-                  className="flex items-center p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
-                >
-                  <div className="w-8 h-8 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-600 flex items-center justify-center">
-                    <CurrencyDollarIcon className="w-5 h-5" />
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                      Manage Subscription Tiers
-                    </p>
-                  </div>
-                </Link>
-                
-                <Link 
-                  href="/messages" 
-                  className="flex items-center p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
-                >
-                  <div className="w-8 h-8 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
-                    <ChatBubbleLeftIcon className="w-5 h-5" />
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                      Message Subscribers
-                    </p>
-                  </div>
-                </Link>
-                
-                <Link 
-                  href="/analytics" 
-                  className="flex items-center p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
-                >
-                  <div className="w-8 h-8 rounded-md bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center">
-                    <ChartBarIcon className="w-5 h-5" />
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                      View Detailed Analytics
-                    </p>
-                  </div>
-                </Link>
-              </div>
+            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <DocumentTextIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Views</p>
+              <h3 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{stats.totalViews}</h3>
+            </div>
+            <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <ChartBarIcon className="w-6 h-6 text-orange-600 dark:text-orange-400" />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-sm">
+        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="flex flex-col items-center p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <VideoCameraIcon className="w-6 h-6 mb-2 text-primary-600 dark:text-primary-400" />
+            <span className="text-sm">Upload Content</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('subscriptions')}
+            className="flex flex-col items-center p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <CurrencyDollarIcon className="w-6 h-6 mb-2 text-primary-600 dark:text-primary-400" />
+            <span className="text-sm">Manage Plans</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className="flex flex-col items-center p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <ArrowTrendingUpIcon className="w-6 h-6 mb-2 text-primary-600 dark:text-primary-400" />
+            <span className="text-sm">View Analytics</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className="flex flex-col items-center p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <Cog6ToothIcon className="w-6 h-6 mb-2 text-primary-600 dark:text-primary-400" />
+            <span className="text-sm">Settings</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white dark:bg-neutral-800 p-6 rounded-xl shadow-sm">
+        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+        {/* Add recent activity content here */}
+      </div>
+    </div>
+  );
+
+  const renderContent = () => (
+    <div className="space-y-6">
+      {/* Content management section */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Your Content</h3>
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <PlusIcon className="w-5 h-5 mr-2" />
+          <span>Upload New</span>
+        </button>
+      </div>
+
+      {/* Content grid/list will go here */}
+    </div>
+  );
+
+  const renderSubscriptions = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="text-lg font-semibold">Subscription Plans</h3>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">Manage your subscription tiers and pricing</p>
+        </div>
+        <button
+          onClick={() => {
+            setEditingPlan(null);
+            setEditForm({
+              name: 'New Plan',
+              price: 9.99,
+              description: 'New subscription plan',
+              features: ['Access to basic content'],
+              contentAccess: defaultContentAccess
+            });
+            setShowEditModal(true);
+          }}
+          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <PlusIcon className="w-5 h-5 mr-2" />
+          <span>Add New Plan</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {subscriptionPlans.map((plan) => (
+          <div key={plan.id} className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200/50 dark:border-neutral-700/50">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h4 className="text-lg font-semibold">{plan.name}</h4>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">{plan.description}</p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setEditingPlan(plan);
+                      setEditForm({
+                        name: plan.name,
+                        price: plan.price,
+                        description: plan.description,
+                        features: plan.features,
+                        contentAccess: plan.contentAccess
+                      });
+                      setShowEditModal(true);
+                    }}
+                    className="p-2 text-neutral-600 hover:text-primary-600 dark:text-neutral-400 dark:hover:text-primary-400"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this plan?')) {
+                        handleDeletePlan(plan.id);
+                      }
+                    }}
+                    className="p-2 text-neutral-600 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">${plan.price}</span>
+                <span className="text-neutral-500 dark:text-neutral-400">/month</span>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Features</h5>
+                  <ul className="space-y-2">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center text-sm">
+                        <CheckIcon className="w-4 h-4 text-green-500 mr-2" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h5 className="text-sm font-medium mb-2">Content Access</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(plan.contentAccess)
+                      .filter(([_, value]) => value)
+                      .map(([key]) => (
+                        <span
+                          key={key}
+                          className="px-2 py-1 text-xs bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full"
+                        >
+                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-700/50 border-t border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  Updated {new Date(plan.updatedAt).toLocaleDateString()}
+                </span>
+                <span className={`px-2 py-1 rounded-full text-xs ${
+                  plan.isActive
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
+                }`}>
+                  {plan.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderAnalytics = () => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Analytics</h3>
+      {/* Add analytics content here */}
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Settings</h3>
+      {/* Add settings content here */}
+    </div>
+  );
+
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Dashboard Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Creator Dashboard</h1>
+            <p className="text-neutral-500 dark:text-neutral-400">Manage your content, subscriptions, and analytics</p>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex space-x-1 bg-white dark:bg-neutral-800 p-1 rounded-lg shadow-sm mb-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md ${
+                activeTab === 'overview'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('content')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md ${
+                activeTab === 'content'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              Content
+            </button>
+            <button
+              onClick={() => setActiveTab('subscriptions')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md ${
+                activeTab === 'subscriptions'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              Subscriptions
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md ${
+                activeTab === 'analytics'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md ${
+                activeTab === 'settings'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+              }`}
+            >
+              Settings
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm p-6">
+            {activeTab === 'overview' && renderOverview()}
+            {activeTab === 'content' && renderContent()}
+            {activeTab === 'subscriptions' && renderSubscriptions()}
+            {activeTab === 'analytics' && renderAnalytics()}
+            {activeTab === 'settings' && renderSettings()}
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Plan Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl max-w-lg w-full"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold">
+                    {editingPlan ? 'Edit Plan' : 'Create New Plan'}
+                  </h3>
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="text-neutral-500 hover:text-neutral-700"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Plan Edit Form */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Plan Name</label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Enter plan name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Price ($/month)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.price}
+                      onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Enter price"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Description</label>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg h-24"
+                      placeholder="Enter plan description"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Features (one per line)</label>
+                    <textarea
+                      value={editForm.features.join('\n')}
+                      onChange={(e) => setEditForm({ ...editForm, features: e.target.value.split('\n').filter(f => f.trim()) })}
+                      className="w-full px-3 py-2 border rounded-lg h-24"
+                      placeholder="Enter features (one per line)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Content Access</label>
+                    <div className="space-y-2">
+                      {Object.entries(editForm.contentAccess).map(([key, value]) => (
+                        <label key={key} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={(e) => setEditForm({
+                              ...editForm,
+                              contentAccess: {
+                                ...editForm.contentAccess,
+                                [key]: e.target.checked
+                              }
+                            })}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">
+                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-neutral-600 hover:bg-neutral-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (editingPlan) {
+                        handleUpdatePlan(editingPlan.id, editForm);
+                      } else {
+                        handleAddPlan(editForm);
+                      }
+                      setShowEditModal(false);
+                    }}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    {editingPlan ? 'Save Changes' : 'Create Plan'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </MainLayout>
   );
 };
 
-export default CreatorDashboardPage; 
+export default CreatorDashboard; 

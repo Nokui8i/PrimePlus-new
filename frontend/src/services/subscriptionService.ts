@@ -1,6 +1,4 @@
-import axios from 'axios';
 import { Subscriber } from '@/types/subscription';
-import { API_URL } from '@/config/constants';
 import api from './api';
 
 export interface ContentTypeAccess {
@@ -71,80 +69,15 @@ export interface UpdateSubscriptionPlanDto {
   features?: string[];
   intervalInDays?: number;
   isActive?: boolean;
-  contentAccess?: Partial<ContentTypeAccess>;
+  contentAccess?: ContentTypeAccess;
 }
-
-interface GetPlansResponse {
-  plans: SubscriptionPlan[];
-}
-
-const defaultContentAccess: ContentTypeAccess = {
-  regularContent: true,
-  premiumVideos: false,
-  vrContent: false,
-  threeSixtyContent: false,
-  liveRooms: false,
-  interactiveModels: false
-};
-
-const SubscriptionService = {
-  getSubscriptionPlans: async (): Promise<SubscriptionPlan[]> => {
-    try {
-      const response = await axios.get(`${API_URL}/subscription/plans`);
-      // Ensure all plans have contentAccess field
-      return response.data.map((plan: any) => ({
-        ...plan,
-        contentAccess: plan.contentAccess || defaultContentAccess
-      }));
-    } catch (error) {
-      console.error('Error fetching subscription plans:', error);
-      return [];
-    }
-  },
-
-  createSubscriptionPlan: async (plan: CreateSubscriptionPlanDto): Promise<SubscriptionPlan | null> => {
-    try {
-      const response = await axios.post(`${API_URL}/subscription/plans`, {
-        ...plan,
-        contentAccess: plan.contentAccess || defaultContentAccess
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating subscription plan:', error);
-      return null;
-    }
-  },
-
-  updateSubscriptionPlan: async (planId: string, updates: UpdateSubscriptionPlanDto): Promise<SubscriptionPlan | null> => {
-    try {
-      const response = await axios.put(`${API_URL}/subscription/plans/${planId}`, updates);
-      return {
-        ...response.data,
-        contentAccess: response.data.contentAccess || defaultContentAccess
-      };
-    } catch (error) {
-      console.error('Error updating subscription plan:', error);
-      return null;
-    }
-  },
-
-  deletePlan: async (planId: string): Promise<boolean> => {
-    try {
-      await axios.delete(`${API_URL}/subscription/plans/${planId}`);
-      return true;
-    } catch (error) {
-      console.error('Error deleting subscription plan:', error);
-      return false;
-    }
-  }
-};
 
 /**
  * Get all subscription plans
  */
 export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
   try {
-    const response = await axios.get(`${API_URL}/subscription/plans`);
+    const response = await api.get('/subscription/plans');
     return response.data;
   } catch (error) {
     console.error('Error fetching subscription plans:', error);
@@ -157,7 +90,7 @@ export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
  */
 export const getSubscriptionPlan = async (planId: string): Promise<SubscriptionPlan | null> => {
   try {
-    const response = await axios.get(`${API_URL}/subscription/plans/${planId}`);
+    const response = await api.get(`/subscription/plans/${planId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching subscription plan ${planId}:`, error);
@@ -169,10 +102,10 @@ export const getSubscriptionPlan = async (planId: string): Promise<SubscriptionP
  * Create a new subscription plan
  */
 export const createSubscriptionPlan = async (
-  plan: Omit<SubscriptionPlan, 'id' | 'createdAt' | 'updatedAt'>
+  plan: CreateSubscriptionPlanDto
 ): Promise<SubscriptionPlan | null> => {
   try {
-    const response = await axios.post(`${API_URL}/subscription/plans`, plan);
+    const response = await api.post('/subscription/plans', plan);
     return response.data;
   } catch (error) {
     console.error('Error creating subscription plan:', error);
@@ -185,10 +118,10 @@ export const createSubscriptionPlan = async (
  */
 export const updateSubscriptionPlan = async (
   planId: string,
-  plan: Partial<SubscriptionPlan>
+  plan: UpdateSubscriptionPlanDto
 ): Promise<SubscriptionPlan | null> => {
   try {
-    const response = await axios.put(`${API_URL}/subscription/plans/${planId}`, plan);
+    const response = await api.put(`/subscription/plans/${planId}`, plan);
     return response.data;
   } catch (error) {
     console.error(`Error updating subscription plan ${planId}:`, error);
@@ -201,7 +134,7 @@ export const updateSubscriptionPlan = async (
  */
 export const deleteSubscriptionPlan = async (planId: string): Promise<boolean> => {
   try {
-    await axios.delete(`${API_URL}/subscription/plans/${planId}`);
+    await api.delete(`/subscription/plans/${planId}`);
     return true;
   } catch (error) {
     console.error(`Error deleting subscription plan ${planId}:`, error);
@@ -217,8 +150,8 @@ export const getSubscribers = async (
   limit: number = 10
 ): Promise<{ subscribers: Subscriber[]; total: number; totalPages: number }> => {
   try {
-    const response = await axios.get(
-      `${API_URL}/subscription/subscribers?page=${page}&limit=${limit}`
+    const response = await api.get(
+      `/subscription/subscribers?page=${page}&limit=${limit}`
     );
     return response.data;
   } catch (error) {
@@ -232,7 +165,7 @@ export const getSubscribers = async (
  */
 export const getSubscriber = async (subscriberId: string): Promise<Subscriber | null> => {
   try {
-    const response = await axios.get(`${API_URL}/subscription/subscribers/${subscriberId}`);
+    const response = await api.get(`/subscription/subscribers/${subscriberId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching subscriber ${subscriberId}:`, error);
@@ -245,7 +178,7 @@ export const getSubscriber = async (subscriberId: string): Promise<Subscriber | 
  */
 export const cancelSubscription = async (subscriberId: string): Promise<boolean> => {
   try {
-    await axios.post(`${API_URL}/subscription/subscribers/${subscriberId}/cancel`);
+    await api.post(`/subscription/subscribers/${subscriberId}/cancel`);
     return true;
   } catch (error) {
     console.error(`Error cancelling subscription for ${subscriberId}:`, error);
@@ -258,7 +191,7 @@ export const cancelSubscription = async (subscriberId: string): Promise<boolean>
  */
 export const getSubscriptionAnalytics = async (): Promise<SubscriptionAnalytics> => {
   try {
-    const response = await axios.get(`${API_URL}/subscription/analytics`);
+    const response = await api.get('/subscription/analytics');
     return response.data;
   } catch (error) {
     console.error('Error fetching subscription analytics:', error);
@@ -277,13 +210,13 @@ export const getSubscriptionAnalytics = async (): Promise<SubscriptionAnalytics>
 
 export const subscriptionService = {
   async getActiveSubscriptions(): Promise<Subscription[]> {
-    const response = await axios.get(`${API_URL}/subscriptions/active`);
+    const response = await api.get('/subscriptions/active');
     return response.data;
   },
 
   async cancelSubscription(subscriptionId: string): Promise<void> {
-    await axios.post(`${API_URL}/subscriptions/${subscriptionId}/cancel`);
+    await api.post(`/subscriptions/${subscriptionId}/cancel`);
   }
 };
 
-export default SubscriptionService;
+export default subscriptionService;

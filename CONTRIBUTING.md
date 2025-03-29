@@ -25,31 +25,49 @@ git checkout -b feature/your-feature-name
 5. Make sure your code lints.
 6. Issue that pull request!
 
-## Code Style Guidelines
-
-### TypeScript
+## Code Style
 
 - Use TypeScript for all new code
-- Define interfaces for all data structures
-- Use proper type annotations
-- Avoid using `any`
-- Use async/await for asynchronous operations
-
-### React/Next.js
-
-- Use functional components with hooks
+- Follow the existing code style
+- Use Tailwind CSS for styling
 - Keep components small and focused
-- Use proper prop types
-- Implement proper error boundaries
-- Follow React best practices
+- Write descriptive commit messages
 
-### CSS/Tailwind
+## Component Guidelines
 
-- Use Tailwind CSS classes
-- Follow mobile-first approach
-- Maintain consistent spacing
-- Use semantic class names
-- Follow color scheme guidelines
+1. Create components in appropriate directories:
+   - `components/common/` for shared UI components
+   - `components/layouts/` for layout components
+   - `components/[feature]/` for feature-specific components
+
+2. Follow naming conventions:
+   - Use PascalCase for component names
+   - Use camelCase for functions and variables
+   - Use kebab-case for file names
+
+3. Component Structure:
+   ```typescript
+   // Imports
+   import React from 'react';
+   
+   // Types/Interfaces
+   interface Props {
+     // ...
+   }
+   
+   // Component
+   export default function ComponentName({ prop1, prop2 }: Props) {
+     // ...
+   }
+   ```
+
+## Styling Guidelines
+
+1. Use Tailwind CSS classes
+2. Follow mobile-first approach
+3. Support dark mode with `dark:` variants
+4. Use consistent spacing and sizing
+5. Follow the design system
 
 ## Project Structure
 
@@ -110,13 +128,13 @@ When implementing streaming features:
 
 ## Pull Request Process
 
-1. Update the README.md with details of changes to the interface
-2. Update the documentation with any new requirements
-3. The PR may be merged once you have the sign-off of two other developers
-4. Follow the PR template provided
+1. Update the README.md with details of changes if needed
+2. Update the CHANGELOG.md with your changes
+3. The PR will be merged once you have the sign-off of maintainers
 
 ## Any contributions you make will be under the MIT Software License
-In short, when you submit code changes, your submissions are understood to be under the same [MIT License](LICENSE.md) that covers the project. Feel free to contact the maintainers if that's a concern.
+
+In short, when you submit code changes, your submissions are understood to be under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the maintainers if that's a concern.
 
 ## Report bugs using GitHub's [issue tracker](https://github.com/Nokui8i/PrimePlus-clean/issues)
 We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/Nokui8i/PrimePlus-clean/issues/new).

@@ -38,4 +38,27 @@ export interface Post {
     includeInSubscription?: boolean;
     individualPrice?: number;
   }[];
+}
+
+export interface LocalPost {
+  id: string;
+  title: string;
+  content: string;
+  description: string;
+  thumbnail: string;
+  createdAt: string;
+  updatedAt: string;
+  creator: {
+    id: string;
+    username: string;
+    fullName: string;
+    avatar: string;
+  };
+  likes: number;
+  comments: number;
+  views: number;
+  isPremium: boolean;
+  media: any[];
+  isEditing: boolean;
+  authorId: string;
 } 

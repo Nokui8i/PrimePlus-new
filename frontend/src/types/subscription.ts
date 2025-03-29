@@ -1,3 +1,5 @@
+import type { ContentTypeAccess } from './content';
+
 export interface ContentTypeAccess {
   regularContent: boolean;
   premiumVideos: boolean;
@@ -10,14 +12,21 @@ export interface ContentTypeAccess {
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  description: string;
   price: number;
-  description?: string;
-  isActive?: boolean;
-  features?: string[];
-  intervalInDays?: number;
-  contentAccess: ContentTypeAccess;
-  createdAt?: string;
-  updatedAt?: string;
+  intervalInDays: number;
+  features: string[];
+  isActive: boolean;
+  contentAccess: {
+    regularContent: boolean;
+    premiumVideos: boolean;
+    vrContent: boolean;
+    threeSixtyContent: boolean;
+    liveRooms: boolean;
+    interactiveModels: boolean;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Discount {
@@ -112,4 +121,17 @@ export interface SubscriptionEvent {
   type: 'created' | 'renewed' | 'cancelled' | 'payment_failed' | 'plan_changed';
   date: string;
   metadata: Record<string, any>;
+}
+
+export interface ServiceSubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  isActive: boolean;
+  features: string[];
+  intervalInDays: number;
+  contentAccess: ContentTypeAccess;
+  createdAt: string;
+  updatedAt: string;
 } 

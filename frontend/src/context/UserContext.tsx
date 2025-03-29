@@ -8,6 +8,7 @@ interface UserContextType {
   error: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isCreator: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -24,7 +25,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  const isAdmin = user?.isAdmin ?? false;
+  // During development, treat all authenticated users as creators
+  const isAdmin = true;
+  const isCreator = true;
 
   return (
     <UserContext.Provider
@@ -34,6 +37,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         error: null,
         isAuthenticated,
         isAdmin,
+        isCreator
       }}
     >
       {children}

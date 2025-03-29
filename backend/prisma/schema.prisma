@@ -34,6 +34,7 @@ model User {
   subscriptions Subscription[]
   sentMessages     Message[]  @relation("SentMessages")
   receivedMessages Message[]  @relation("ReceivedMessages")
+  createdPlans  SubscriptionPlan[]
 }
 
 model Message {
@@ -121,6 +122,24 @@ model Collection {
   posts       Post[]
 }
 
+model SubscriptionPlan {
+  id            String    @id @default(cuid())
+  name          String
+  price         Float
+  description   String?
+  features      String[]
+  intervalInDays Int
+  isActive      Boolean   @default(true)
+  contentAccess Json      @default("{\"regularContent\":true,\"premiumVideos\":false,\"vrContent\":false,\"threeSixtyContent\":false,\"liveRooms\":false,\"interactiveModels\":false}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  creator       User      @relation(fields: [creatorId], references: [id])
+  creatorId     String
+  subscriptions Subscription[]
+}
+
 model Subscription {
   id        String   @id @default(cuid())
   startDate DateTime @default(now())
@@ -132,6 +151,8 @@ model Subscription {
   // Relations
   subscriber User     @relation(fields: [subscriberId], references: [id])
   subscriberId String
+  plan       SubscriptionPlan @relation(fields: [planId], references: [id])
+  planId     String
 }
 
 enum Role {
