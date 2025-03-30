@@ -17,16 +17,9 @@ export interface SubscriptionPlan {
   intervalInDays: number;
   features: string[];
   isActive: boolean;
-  contentAccess: {
-    regularContent: boolean;
-    premiumVideos: boolean;
-    vrContent: boolean;
-    threeSixtyContent: boolean;
-    liveRooms: boolean;
-    interactiveModels: boolean;
-  };
-  createdAt: string;
-  updatedAt: string;
+  contentAccess: ContentTypeAccess;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Discount {
@@ -50,20 +43,17 @@ export interface ExtendedProfile {
   website?: string;
   isCreator?: boolean;
   joinDate?: string;
-  followers?: number;
-  following?: number;
-  posts?: number;
   postsCount: number;
   followersCount: number;
   followingCount: number;
-  totalViews?: number;
-  totalLikes?: number;
-  totalComments?: number;
+  totalViews: number;
+  totalLikes: number;
+  totalComments: number;
   subscriptionPlans: SubscriptionPlan[];
   discounts: Discount[];
-  defaultSubscriptionPrice?: number;
-  freeAccessList?: string[];
-  subscribedTo?: string[];
+  defaultSubscriptionPrice: number;
+  freeAccessList: Array<{ userId: string; grantedAt: string }>;
+  subscribedTo: string[];
 }
 
 export interface Subscriber {
@@ -113,14 +103,13 @@ export interface SubscriptionPayment {
   createdAt: string;
 }
 
-export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'trialing' | 'unpaid';
-
-export interface SubscriptionEvent {
-  id: string;
-  subscriberId: string;
-  type: 'created' | 'renewed' | 'cancelled' | 'payment_failed' | 'plan_changed';
-  date: string;
-  metadata: Record<string, any>;
+export interface ContentAccess {
+  regularContent: boolean;
+  premiumVideos: boolean;
+  vrContent: boolean;
+  threeSixtyContent: boolean;
+  liveRooms: boolean;
+  interactiveModels: boolean;
 }
 
 export interface ServiceSubscriptionPlan {
@@ -131,7 +120,27 @@ export interface ServiceSubscriptionPlan {
   isActive: boolean;
   features: string[];
   intervalInDays: number;
-  contentAccess: ContentTypeAccess;
+  contentAccess: ContentAccess;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SubscriptionStatus = 'active' | 'cancelled' | 'expired';
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+}
+
+export interface SubscriptionEvent {
+  id: string;
+  subscriberId: string;
+  type: 'created' | 'renewed' | 'cancelled' | 'payment_failed' | 'plan_changed';
+  date: string;
+  metadata: Record<string, any>;
 } 

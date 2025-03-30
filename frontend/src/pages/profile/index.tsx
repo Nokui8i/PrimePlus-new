@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from '@/components/layouts/MainLayout';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -31,22 +32,23 @@ import {
   DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import InfiniteFeed from '@/components/feed/InfiniteFeed';
-import { MOCK_POSTS, MOCK_CREATORS } from '@/services/mockData';
 import SubscriptionPlans from '@/components/profile/SubscriptionPlans';
 import type { Profile } from '@/types/profile';
-import type { Post } from '@/types/post';
 import type { MediaItem } from '@/types/media';
 import type { MediaUploadResponse } from '@/types/media';
+import type { ExtendedProfile, SubscriptionPlan, Discount, ContentTypeAccess } from '@/types/subscription';
+import type { Post, Creator } from '@/types/post';
 import CreatePostForm from '@/components/content/CreatePostForm';
-import type { SubscriptionPlan as ServiceSubscriptionPlan, ContentTypeAccess, CreateSubscriptionPlanDto } from '@/services/subscriptionService';
 import { getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan } from '@/services/subscriptionService';
 import { toast } from 'react-hot-toast';
 import SubscriptionService from '@/services/subscriptionService';
-import { defaultContentAccess } from '@/constants/content';
-import { mockSubscriptionPlans } from '@/mocks/data';
+import { defaultContentAccess, mockSubscriptionPlans } from '@/mocks/data';
 import { useDropzone } from 'react-dropzone';
 import { containers, typography, contentSizes, commonStyles, layout } from '@/styles/design-system';
 import PlaceholderImage from '@/components/common/PlaceholderImage';
+import BioEditor from '@/components/profile/BioEditor';
+import { userService } from '@/services/userService';
+import { v4 as uuidv4 } from 'uuid';
 
 // Replace the static VRViewer import with dynamic import
 const VRViewer = dynamic(() => import('@/components/VRViewer'), {
@@ -59,43 +61,55 @@ const VRViewer = dynamic(() => import('@/components/VRViewer'), {
 });
 
 // Types
-interface LocalSubscriptionPlan extends ServiceSubscriptionPlan {}
-interface LocalMediaItem extends MediaItem {}
-interface LocalPost extends Omit<Post, 'creator' | 'media'> {
-  isEditing: boolean;
-  creator: {
-    id: string;
-    username: string;
-    fullName: string;
-    avatar: string;
-  };
-  media?: {
-    url: string;
-    type: 'vr' | 'image' | 'video';
-    thumbnail?: string;
-    subscriptionPackId: string | null;
-    includeInSubscription: boolean;
-    individualPrice?: number;
-  }[];
-}
-
-interface LocalDiscount {
+interface Comment {
   id: string;
-  code: string;
-  percentage: number;
-  validUntil: string;
-  isActive: boolean;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  username: string;
+  avatar?: string;
 }
 
-interface SubscriptionPlansProps {
-  plans: ServiceSubscriptionPlan[];
-  discounts: LocalDiscount[];
-  defaultPrice?: number;
-  onSubscribe?: (planId: string) => void;
-  isSubscribed?: boolean;
-  onAddPlan: (newPlan: Partial<ServiceSubscriptionPlan>) => void;
-  onUpdatePlan: (planId: string, updates: Partial<ServiceSubscriptionPlan>) => void;
-  onDeletePlan: (planId: string) => void;
+interface PostMedia {
+  url: string;
+  type: 'vr' | 'image' | 'video';
+  thumbnail: string;
+  subscriptionPackId: string | null;
+  includeInSubscription: boolean;
+  individualPrice?: number;
+}
+
+interface BasePost {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  thumbnail?: string;
+  likes: number;
+  views: number;
+  isPremium: boolean;
+  createdAt: string;
+  updatedAt: string;
+  authorId?: string;
+}
+
+interface LocalPost extends BasePost {
+  isEditing: boolean;
+  creator: Creator;
+  media?: PostMedia[];
+  comments: Comment[];
+}
+
+interface EditFormState {
+  name?: string;
+  price?: number;
+  description?: string;
+  features?: string[];
+  intervalInDays?: number;
+  contentAccess?: ContentTypeAccess;
+  file?: File;
+  previewUrl?: string;
 }
 
 type SubscriptionTier = 'none' | 'basic' | 'premium' | 'vr';
@@ -120,31 +134,23 @@ interface InfiniteFeedProps {
   creatorId?: string;
 }
 
-interface PostMedia extends MediaUploadResponse {
-  subscriptionPackId: string | null;
-  individualPrice?: number;
-  includeInSubscription: boolean;
-}
-
-interface ExtendedProfile extends Profile {
-  postsCount: number;
-  followersCount: number;
-  followingCount: number;
-}
-
 interface ProfileWithStats extends ExtendedProfile {
   totalRevenue: number;
 }
 
-interface Discount {
+interface UpdateProfileResponse extends Profile {}
+
+interface MockCreator {
   id: string;
-  code: string;
-  percentage: number;
-  validUntil: string;
-  isActive: boolean;
+  username: string;
+  fullName: string;
+  avatar: string;
+  followers: number;
+  posts: number;
+  isVerified: boolean;
 }
 
-const mockDiscounts: LocalDiscount[] = [
+const mockDiscounts: Discount[] = [
   {
     id: '1',
     code: 'WELCOME2024',
@@ -154,7 +160,7 @@ const mockDiscounts: LocalDiscount[] = [
   }
 ];
 
-const mockPosts: LocalPost[] = [
+const mockPosts: Post[] = [
   {
     id: '1',
     title: 'My First Post',
@@ -168,10 +174,13 @@ const mockPosts: LocalPost[] = [
       id: '123',
       username: 'creator1',
       fullName: 'John Creator',
-      avatar: '/images/avatar1.jpg'
+      avatar: '/images/avatar1.jpg',
+      followers: 1000,
+      posts: 10,
+      isVerified: true
     },
     likes: 10,
-    comments: 5,
+    comments: [],
     views: 100,
     media: [
       {
@@ -188,6 +197,18 @@ const mockPosts: LocalPost[] = [
   }
 ];
 
+const mockCreators: Creator[] = [
+  {
+    id: '1',
+    username: 'creator1',
+    fullName: 'John Creator',
+    avatar: '/images/avatar1.jpg',
+    followers: 1000,
+    posts: 10,
+    isVerified: true
+  }
+];
+
 const mockProfile: ExtendedProfile = {
   id: '123',
   username: 'creator1',
@@ -199,9 +220,6 @@ const mockProfile: ExtendedProfile = {
   isVerified: true,
   isCreator: true,
   joinDate: new Date().toISOString(),
-  followers: 1000,
-  following: 500,
-  posts: mockPosts.length,
   postsCount: mockPosts.length,
   followersCount: 1000,
   followingCount: 500,
@@ -228,9 +246,6 @@ const defaultProfile: ExtendedProfile = {
   website: '',
   isCreator: true,
   joinDate: '2024-01-01',
-  followers: 0,
-  following: 0,
-  posts: 0,
   postsCount: 0,
   followersCount: 0,
   followingCount: 0,
@@ -253,66 +268,169 @@ interface PlanEditForm {
   contentAccess: ContentTypeAccess;
 }
 
-const ProfilePage: React.FC = () => {
+// Update the defaultPlan type
+const defaultPlan: SubscriptionPlan = {
+  id: uuidv4(),
+  name: 'Basic Plan',
+  description: 'Access to regular content',
+  price: 9.99,
+  intervalInDays: 30,
+  features: ['Regular content access', 'Monthly updates'],
+  isActive: true,
+  contentAccess: defaultContentAccess
+};
+
+const ProfilePage: FC = () => {
   const router = useRouter();
   const { username } = router.query;
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [subscriptionPlans, setSubscriptionPlans] = useState<ServiceSubscriptionPlan[]>([]);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<ServiceSubscriptionPlan | null>(null);
-  const [editForm, setEditForm] = useState<Partial<ServiceSubscriptionPlan>>({
-    name: '',
-    price: 9.99,
-    description: '',
-    features: [],
-    intervalInDays: 30,
-    contentAccess: defaultContentAccess
-  });
+  const [profile, setProfile] = useState<ExtendedProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [editFormState, setEditFormState] = useState<EditFormState>({});
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<'posts' | 'users'>('users');
+  const [searchType, setSearchType] = useState<'users' | 'posts'>('users');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isOwnProfile = user?.username === username;
+  const [error, setError] = useState<string | null>(null);
+
+  const handleBioSave = async (newBio: string) => {
+    try {
+      const updatedUser = await userService.updateProfile({
+        bio: newBio,
+        displayName: profile?.fullName || '',
+        location: profile?.location || '',
+        websiteUrl: profile?.website || '',
+        amazonWishlist: '',
+        profileImage: profile?.avatar || '',
+        coverImage: profile?.coverImage || ''
+      });
+      
+      if (profile && updatedUser) {
+        setProfile({
+          ...profile,
+          bio: newBio
+        });
+      }
+    } catch (error) {
+      console.error('Error updating bio:', error);
+      throw error;
+    }
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!file) return;
+    
+    try {
+      const response = await userService.uploadProfileImage(file);
+      if (profile && response.url) {
+        setProfile({
+          ...profile,
+          avatar: response.url
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+    }
+  };
+
+  const handleCoverUpload = async (file: File) => {
+    if (!file) return;
+    
+    try {
+      const response = await userService.uploadProfileImage(file);
+      if (profile && response.url) {
+        setProfile({
+          ...profile,
+          coverImage: response.url
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading cover image:', error);
+    }
+  };
 
   useEffect(() => {
-    // Initialize with mock data immediately
-    setProfile({
-      id: '1',
-      username: 'demo_user',
-      fullName: 'Demo User',
-      avatar: '/images/default-avatar.png',
-      coverImage: '/images/default-cover.png',
-      bio: 'This is a demo profile',
-      postsCount: 0,
-      followersCount: 0,
-      followingCount: 0,
-      isCreator: false,
-      isVerified: false,
-      defaultSubscriptionPrice: 9.99,
-      subscriptionPlans: mockSubscriptionPlans
-    });
-    setSubscriptionPlans(mockSubscriptionPlans);
-    setIsLoading(false);
-  }, []);
+    const loadProfile = async () => {
+      if (!router.isReady) return;
+      
+      try {
+        setIsLoading(true);
+        if (!username) {
+          setProfile(mockProfile);
+          return;
+        }
+        
+        const profileData = await userService.getCurrentUser();
+        const contentAccess: ContentTypeAccess = {
+          regularContent: true,
+          premiumVideos: false,
+          vrContent: false,
+          threeSixtyContent: false,
+          liveRooms: false,
+          interactiveModels: false
+        };
+
+        const newProfile: ExtendedProfile = {
+          id: profileData.id,
+          username: profileData.username,
+          fullName: profileData.fullName || '',
+          email: profileData.email,
+          bio: profileData.bio || '',
+          avatar: profileData.avatar,
+          coverImage: '',
+          isVerified: profileData.isVerified,
+          location: profileData.location,
+          website: profileData.website,
+          isCreator: profileData.role === 'creator',
+          joinDate: new Date().toISOString(),
+          postsCount: 0,
+          followersCount: 0,
+          followingCount: 0,
+          totalViews: 0,
+          totalLikes: 0,
+          totalComments: 0,
+          subscriptionPlans: [defaultPlan],
+          discounts: [],
+          defaultSubscriptionPrice: 0,
+          freeAccessList: [],
+          subscribedTo: []
+        };
+
+        setProfile(newProfile);
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setError('Failed to load profile');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [router.isReady, username]);
 
   const loadSubscriptionPlans = async () => {
     try {
       const fetchedPlans = await getSubscriptionPlans();
-      // Ensure all plans have contentAccess
       const plansWithAccess = fetchedPlans.map(plan => ({
         ...plan,
-        contentAccess: plan.contentAccess || defaultContentAccess
-      }));
+        contentAccess: plan.contentAccess || { ...defaultContentAccess },
+        createdAt: plan.createdAt || new Date().toISOString(),
+        updatedAt: plan.updatedAt || new Date().toISOString()
+      })) as SubscriptionPlan[];
+      
       setSubscriptionPlans(plansWithAccess);
-      setProfile(prev => {
-        if (!prev) return prev;
+      setProfile(currentProfile => {
+        if (!currentProfile) return currentProfile;
         return {
-          ...prev,
+          ...currentProfile,
           subscriptionPlans: plansWithAccess
         };
       });
@@ -323,17 +441,18 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleEdit = () => {
-    setEditForm({
-      name: profile?.fullName,
-      price: profile?.defaultSubscriptionPrice || 0,
-      description: profile?.bio || '',
-      features: profile?.subscriptionPlans.map(plan => plan.name) || [],
-      contentAccess: profile?.subscriptionPlans.reduce((access, plan) => ({
-        ...access,
-        [plan.name.toLowerCase()]: plan.contentAccess.regularContent
-      }), defaultContentAccess) || defaultContentAccess
-    });
-    setShowEditModal(true);
+    const activePlan = profile?.subscriptionPlans.find(plan => plan.isActive);
+    if (activePlan) {
+      setEditingPlan(activePlan);
+      setEditFormState({
+        name: activePlan.name,
+        price: activePlan.price,
+        description: activePlan.description,
+        features: activePlan.features,
+        intervalInDays: activePlan.intervalInDays,
+        contentAccess: activePlan.contentAccess
+      });
+    }
   };
 
   const handleSave = () => {
@@ -341,9 +460,9 @@ const ProfilePage: React.FC = () => {
 
     setProfile({
       ...profile,
-      ...editForm,
+      ...editFormState,
     });
-    setShowEditModal(false);
+    setEditingPlan(null);
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,44 +476,6 @@ const ProfilePage: React.FC = () => {
         });
       };
       reader.readAsDataURL(file);
-    }
-  };
-
-  const handleAvatarUpload = async () => {
-    try {
-      // TODO: Implement avatar upload to server
-      if (profile) {
-        setProfile({ ...profile, avatar: URL.createObjectURL(profile.avatar) });
-      }
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      // TODO: Show error message to user
-    }
-  };
-
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && profile) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile({
-          ...profile,
-          coverImage: reader.result as string
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCoverUpload = async () => {
-    try {
-      // TODO: Implement cover upload to server
-      if (profile) {
-        setProfile({ ...profile, coverImage: URL.createObjectURL(profile.coverImage) });
-      }
-    } catch (error) {
-      console.error('Error uploading cover:', error);
-      // TODO: Show error message to user
     }
   };
 
@@ -422,46 +503,58 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleAddPlan = async (newPlan: Partial<ServiceSubscriptionPlan>) => {
+  const handleCreatePlan = async () => {
+    if (!editFormState.name || !editFormState.price || !editFormState.description || !editFormState.features || !editFormState.intervalInDays) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const newPlan: Omit<SubscriptionPlan, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: editFormState.name,
+      price: editFormState.price,
+      description: editFormState.description,
+      features: editFormState.features,
+      intervalInDays: editFormState.intervalInDays,
+      contentAccess: editFormState.contentAccess || defaultContentAccess,
+      isActive: true
+    };
+
     try {
-      // Create a new plan with mock data
-      const createdPlan: ServiceSubscriptionPlan = {
-        id: uuidv4(),
-        name: newPlan.name || 'New Plan',
-        price: newPlan.price || 9.99,
-        description: newPlan.description || 'New subscription plan',
-        isActive: true,
-        features: newPlan.features || ['Access to basic content'],
-        intervalInDays: newPlan.intervalInDays || 30,
-        contentAccess: newPlan.contentAccess || defaultContentAccess,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      // Update state with new plan
-      setSubscriptionPlans(prev => [...prev, createdPlan]);
-      toast.success('Subscription plan created successfully');
+      const response = await createSubscriptionPlan(newPlan);
+      if (response) {
+        setSubscriptionPlans(prev => [...prev, response]);
+        setEditFormState({});
+        toast.success('Subscription plan created successfully');
+      }
     } catch (error) {
       console.error('Error creating subscription plan:', error);
       toast.error('Failed to create subscription plan');
     }
   };
 
-  const handleUpdatePlan = async (planId: string, updates: Partial<ServiceSubscriptionPlan>) => {
+  const handleUpdatePlan = async (planId: string) => {
+    if (!editFormState.name || !editFormState.price || !editFormState.description || !editFormState.features || !editFormState.intervalInDays) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const updatedPlan: Partial<SubscriptionPlan> = {
+      name: editFormState.name,
+      price: editFormState.price,
+      description: editFormState.description,
+      features: editFormState.features,
+      intervalInDays: editFormState.intervalInDays,
+      contentAccess: editFormState.contentAccess
+    };
+
     try {
-      // Update plan in state
-      setSubscriptionPlans(plans =>
-        plans.map(plan =>
-          plan.id === planId
-            ? {
-                ...plan,
-                ...updates,
-                updatedAt: new Date().toISOString()
-              }
-            : plan
-        )
-      );
-      toast.success('Subscription plan updated successfully');
+      const response = await updateSubscriptionPlan(planId, updatedPlan);
+      if (response) {
+        setSubscriptionPlans(prev => prev.map(plan => plan.id === planId ? response : plan));
+        setEditingPlan(null);
+        setEditFormState({});
+        toast.success('Subscription plan updated successfully');
+      }
     } catch (error) {
       console.error('Error updating subscription plan:', error);
       toast.error('Failed to update subscription plan');
@@ -490,8 +583,8 @@ const ProfilePage: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setEditForm({
-        ...editForm,
+      setEditFormState({
+        ...editFormState,
         file,
         previewUrl: URL.createObjectURL(file)
       });
@@ -500,17 +593,17 @@ const ProfilePage: React.FC = () => {
 
   const handleUpload = async () => {
     try {
-      if (!editForm.file) {
+      if (!editFormState.file) {
         toast.error('Please select a file to upload');
         return;
       }
 
       // Handle upload logic here
       // This is a placeholder and should be replaced with actual implementation
-      console.log('Uploading file:', editForm.file);
+      console.log('Uploading file:', editFormState.file);
 
       // Simulate successful upload
-      setShowEditModal(false);
+      setEditingPlan(null);
     } catch (error) {
       console.error('Error uploading file:', error);
       toast.error('An error occurred while uploading the file');
@@ -567,13 +660,13 @@ const ProfilePage: React.FC = () => {
     multiple: false
   });
 
-  // Filter suggestions based on search query
+  // Update the filtered suggestions
   const filteredSuggestions = searchType === 'users' 
-    ? MOCK_CREATORS.filter(creator => 
+    ? mockCreators.filter((creator: Creator) => 
         creator.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        creator.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
+        creator.fullName.toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 5)
-    : MOCK_POSTS.filter(post =>
+    : mockPosts.filter((post: Post) =>
         post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         post.description?.toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 5);
@@ -589,6 +682,16 @@ const ProfilePage: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleContentAccessChange = (key: keyof ContentTypeAccess, checked: boolean) => {
+    setEditFormState(currentForm => ({
+      ...currentForm,
+      contentAccess: {
+        ...currentForm.contentAccess,
+        [key]: checked
+      } as ContentTypeAccess
+    }));
+  };
 
   const renderPosts = () => {
     return (
@@ -643,19 +746,17 @@ const ProfilePage: React.FC = () => {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary-500"></div>
         </div>
       </MainLayout>
     );
   }
 
-  if (!profile) {
+  if (error) {
     return (
       <MainLayout>
-        <div className="text-center py-12">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-            Profile not found
-          </h2>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-red-500">{error}</div>
         </div>
       </MainLayout>
     );
@@ -669,8 +770,8 @@ const ProfilePage: React.FC = () => {
             {/* Main Content - Profile */}
             <div className="md:col-span-5 lg:col-span-6 xl:col-span-7">
               {/* Cover Photo */}
-              <div className="relative h-80 bg-neutral-200 dark:bg-neutral-800">
-                <div className="h-full px-4 sm:px-6 lg:px-8">
+              <div className="relative h-80 bg-neutral-200 dark:bg-neutral-800 rounded-t-xl overflow-hidden">
+                <div className="h-full">
                   <div {...getCoverRootProps()} className="absolute inset-0">
                     <input {...getCoverInputProps()} />
                     {profile?.coverImage ? (
@@ -679,7 +780,7 @@ const ProfilePage: React.FC = () => {
                           src={profile.coverImage}
                           alt="Cover"
                           fill
-                          className="object-cover rounded-lg"
+                          className="object-cover"
                           sizes="(max-width: 768px) 100vw, 672px"
                         />
                         <button
@@ -687,7 +788,7 @@ const ProfilePage: React.FC = () => {
                             e.stopPropagation();
                             handleDeleteCover();
                           }}
-                          className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
+                          className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70"
                         >
                           <TrashIcon className="w-5 h-5" />
                         </button>
@@ -695,8 +796,8 @@ const ProfilePage: React.FC = () => {
                     ) : (
                       <div className="h-full flex items-center justify-center">
                         <div className="text-center">
-                          <PhotoIcon className="mx-auto h-10 w-10 text-neutral-400" />
-                          <p className="mt-1 text-sm text-neutral-500">
+                          <PhotoIcon className="mx-auto h-12 w-12 text-neutral-400" />
+                          <p className="mt-2 text-sm text-neutral-500">
                             Click or drag to upload cover photo
                           </p>
                         </div>
@@ -706,66 +807,78 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Profile Info */}
-              <div className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
-                <div className="px-4 sm:px-6 lg:px-8">
-                  <div className="flex items-start -mt-16 relative z-10">
-                    {/* Avatar */}
-                    <div {...getAvatarRootProps()} className="relative">
-                      <input {...getAvatarInputProps()} />
-                      <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white dark:border-neutral-800 bg-neutral-200 dark:bg-neutral-700">
-                        {profile?.avatar ? (
-                          <>
-                            <Image
-                              src={profile.avatar}
-                              alt={profile?.username || ''}
-                              fill
-                              className="object-cover"
-                              sizes="96px"
-                            />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAvatar();
-                              }}
-                              className="absolute top-0 right-0 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <div className="h-full flex items-center justify-center">
-                            <PhotoIcon className="h-8 w-8 text-neutral-400" />
-                          </div>
-                        )}
+              {/* Profile Picture - Adjusted position */}
+              <div className="relative px-4 sm:px-6 lg:px-8 -mt-28 z-10">
+                <div {...getAvatarRootProps()} className="relative inline-block group">
+                  <input {...getAvatarInputProps()} />
+                  <div className="w-40 h-40 rounded-xl overflow-hidden border-4 border-white dark:border-neutral-800 bg-neutral-200 dark:bg-neutral-700 shadow-lg">
+                    {profile?.avatar ? (
+                      <>
+                        <Image
+                          src={profile.avatar}
+                          alt={profile?.username || ''}
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAvatar();
+                          }}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <PhotoIcon className="h-12 w-12 text-neutral-400" />
                       </div>
-                    </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                    {/* Profile Info */}
-                    <div className="ml-4 flex-1">
-                      <div className="flex items-baseline">
-                        <h1 className="text-xl font-bold text-neutral-900 dark:text-white">{profile?.username}</h1>
-                        {profile?.isVerified && (
-                          <span className="ml-2 text-primary-500">
-                            <CheckBadgeIcon className="w-5 h-5" />
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
-                        {profile?.bio || 'No bio yet'}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-3">
-                        <div className="flex flex-col items-center">
-                          <span className="text-sm font-semibold">{profile?.postsCount || 0}</span>
-                          <span className="text-xs text-neutral-500">Posts</span>
+              {/* Profile Info - Connected to cover photo */}
+              <div className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 -mt-16">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-3">
+                  <div className="flex flex-col">
+                    <div className="flex flex-col sm:flex-row items-start gap-2">
+                      {/* Left side - empty space for profile picture alignment */}
+                      <div className="w-40 hidden sm:block"></div>
+                      
+                      {/* Right side - profile info */}
+                      <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row items-baseline gap-2">
+                          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{profile?.username}</h1>
+                          {profile?.isVerified && (
+                            <span className="text-primary-500">
+                              <CheckBadgeIcon className="w-6 h-6" />
+                            </span>
+                          )}
                         </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-sm font-semibold">{profile?.followersCount || 0}</span>
-                          <span className="text-xs text-neutral-500">Followers</span>
+                        
+                        {/* Stats */}
+                        <div className="mt-1.5 flex items-center space-x-6 text-sm text-neutral-600 dark:text-neutral-400">
+                          <div>
+                            <span className="font-semibold text-neutral-900 dark:text-white">{profile?.postsCount || 0}</span> posts
+                          </div>
+                          <div>
+                            <span className="font-semibold text-neutral-900 dark:text-white">{profile?.followersCount || 0}</span> followers
+                          </div>
+                          <div>
+                            <span className="font-semibold text-neutral-900 dark:text-white">{profile?.followingCount || 0}</span> following
+                          </div>
                         </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-sm font-semibold">{profile?.followingCount || 0}</span>
-                          <span className="text-xs text-neutral-500">Following</span>
+
+                        {/* Bio section */}
+                        <div className="mt-1.5 max-w-2xl">
+                          <BioEditor
+                            initialBio={profile?.bio || 'This is a placeholder bio for development'}
+                            onSave={handleBioSave}
+                            isOwnProfile={true}
+                          />
                         </div>
                       </div>
                     </div>
@@ -885,7 +998,7 @@ const ProfilePage: React.FC = () => {
                   <div className="p-2 sm:p-3">
                     <h2 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-neutral-900 dark:text-neutral-100">Suggested Creators</h2>
                     <div className="space-y-2 sm:space-y-3">
-                      {MOCK_CREATORS.slice(0, 3).map((creator) => (
+                      {mockCreators.slice(0, 3).map((creator) => (
                         <div key={creator.id} className="relative group">
                           <div className="aspect-video rounded-lg overflow-hidden mb-2">
                             <Image
@@ -922,7 +1035,7 @@ const ProfilePage: React.FC = () => {
 
       {/* Edit Profile Modal */}
       <AnimatePresence>
-        {showEditModal && (
+        {editingPlan && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -938,10 +1051,10 @@ const ProfilePage: React.FC = () => {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                    {editingPlan ? 'Edit Plan' : 'Add New Plan'}
+                    Edit Plan
                   </h3>
                   <button
-                    onClick={() => setShowEditModal(false)}
+                    onClick={() => setEditingPlan(null)}
                     className="text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
                   >
                     <XMarkIcon className="w-6 h-6" />
@@ -953,8 +1066,8 @@ const ProfilePage: React.FC = () => {
                     <label className="block text-sm font-medium mb-2">Plan Name</label>
                     <input
                       type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      value={editFormState.name}
+                      onChange={(e) => setEditFormState({ ...editFormState, name: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600"
                       placeholder="Enter plan name"
                     />
@@ -966,8 +1079,8 @@ const ProfilePage: React.FC = () => {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={editForm.price}
-                      onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
+                      value={editFormState.price}
+                      onChange={(e) => setEditFormState({ ...editFormState, price: parseFloat(e.target.value) })}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600"
                       placeholder="Enter price"
                     />
@@ -976,8 +1089,8 @@ const ProfilePage: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium mb-2">Description</label>
                     <textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      value={editFormState.description}
+                      onChange={(e) => setEditFormState({ ...editFormState, description: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 h-24"
                       placeholder="Enter plan description"
                     />
@@ -986,8 +1099,8 @@ const ProfilePage: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium mb-2">Features (one per line)</label>
                     <textarea
-                      value={editForm.features?.join('\n') || ''}
-                      onChange={(e) => setEditForm({ ...editForm, features: e.target.value.split('\n').filter(f => f.trim()) })}
+                      value={editFormState.features?.join('\n') || ''}
+                      onChange={(e) => setEditFormState({ ...editFormState, features: e.target.value.split('\n').filter(f => f.trim()) })}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 h-24"
                       placeholder="Enter features (one per line)"
                     />
@@ -996,18 +1109,12 @@ const ProfilePage: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium mb-4">Content Access</label>
                     <div className="space-y-3">
-                      {editForm.contentAccess && Object.entries(editForm.contentAccess).map(([key, value]) => (
+                      {editFormState.contentAccess && Object.entries(editFormState.contentAccess).map(([key, value]) => (
                         <label key={key} className="flex items-center space-x-2">
                           <input
                             type="checkbox"
                             checked={value}
-                            onChange={(e) => setEditForm({
-                              ...editForm,
-                              contentAccess: {
-                                ...editForm.contentAccess,
-                                [key]: e.target.checked
-                              }
-                            })}
+                            onChange={(e) => handleContentAccessChange(key as keyof ContentTypeAccess, e.target.checked)}
                             className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                           />
                           <span className="text-sm">
@@ -1021,24 +1128,18 @@ const ProfilePage: React.FC = () => {
 
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
-                    onClick={() => setShowEditModal(false)}
+                    onClick={() => setEditingPlan(null)}
                     className="px-4 py-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-700 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => {
-                      if (editingPlan) {
-                        handleUpdatePlan(editingPlan.id, editForm);
-                      } else {
-                        handleAddPlan(editForm);
-                      }
-                      setShowEditModal(false);
-                      setEditingPlan(null);
+                      handleUpdatePlan(editingPlan.id);
                     }}
                     className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
-                    {editingPlan ? 'Save Changes' : 'Create Plan'}
+                    Save Changes
                   </button>
                 </div>
               </div>

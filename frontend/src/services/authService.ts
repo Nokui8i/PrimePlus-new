@@ -1,126 +1,97 @@
-import axios from 'axios';
-import { API_URL } from '@/config/constants';
+import mockStorage from './mockStorage';
+import { MOCK_USER } from './mockData';
 
-const USERS_API_URL = `${API_URL}/users`;
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
 
-/**
- * Register a new user
- * @param userData - User registration data
- * @returns 
- */
-const register = async (userData: any) => {
-  return axios.post(`${USERS_API_URL}/register`, userData);
-};
+interface RegisterData {
+  email: string;
+  password: string;
+  username: string;
+  fullName: string;
+}
 
-/**
- * Login user
- * @param credentials - User login credentials
- * @returns 
- */
-const login = async (credentials: { email: string; password: string }) => {
-  try {
-    // Only use real server authentication
-    const response = await axios.post(`${USERS_API_URL}/login`, credentials);
-    
-    if (response.data.token) {
-      localStorage.setItem('user', JSON.stringify(response.data));
+const MOCK_TOKEN = 'mock_jwt_token';
+
+export const authService = {
+  login: async (credentials: LoginCredentials) => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Mock validation
+    if (credentials.email === MOCK_USER.email) {
+      const authState = {
+        token: MOCK_TOKEN,
+        user: MOCK_USER,
+      };
+      mockStorage.setAuthState(authState);
+      return authState;
     }
-    
-    return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-};
 
-/**
- * Logout user by removing stored data
- */
-const logout = () => {
-  localStorage.removeItem('user');
-};
+    throw new Error('Invalid credentials');
+  },
 
-/**
- * Get current user data from localStorage
- * @returns 
- */
-const getCurrentUser = () => {
-  try {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      return JSON.parse(userStr);
+  register: async (data: RegisterData) => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Create new user
+    const newUser = {
+      id: String(Date.now()),
+      email: data.email,
+      username: data.username,
+      fullName: data.fullName,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.username}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      role: 'user',
+      isVerified: false,
+    };
+
+    const authState = {
+      token: MOCK_TOKEN,
+      user: newUser,
+    };
+
+    mockStorage.setAuthState(authState);
+    mockStorage.set('primePlus_user', newUser);
+
+    return authState;
+  },
+
+  logout: async () => {
+    mockStorage.remove('primePlus_auth');
+    return true;
+  },
+
+  getCurrentUser: () => {
+    const authState = mockStorage.getAuthState();
+    return authState?.user || null;
+  },
+
+  isAuthenticated: () => {
+    const authState = mockStorage.getAuthState();
+    return !!authState?.token;
+  },
+
+  getToken: () => {
+    const authState = mockStorage.getAuthState();
+    return authState?.token || null;
+  },
+
+  updateProfile: async (updates: Partial<typeof MOCK_USER>) => {
+    const updatedUser = mockStorage.updateUser(updates);
+    const authState = mockStorage.getAuthState();
+    if (authState) {
+      mockStorage.setAuthState({
+        ...authState,
+        user: updatedUser,
+      });
     }
-    return null;
-  } catch (error) {
-    console.error('Error parsing user from localStorage:', error);
-    return null;
-  }
+    return updatedUser;
+  },
 };
 
-/**
- * Get authorization header with JWT token
- * @returns 
- */
-const getAuthHeader = () => {
-  const user = getCurrentUser();
-  if (user && user.token) {
-    return { Authorization: `Bearer ${user.token}` };
-  } else {
-    return {};
-  }
-};
-
-/**
- * Update user profile
- * @param profileData - Updated profile data
- * @returns 
- */
-const updateProfile = async (profileData: any) => {
-  return axios.put(`${USERS_API_URL}/profile`, profileData, {
-    headers: getAuthHeader()
-  });
-};
-
-/**
- * Get user profile
- * @returns 
- */
-const getProfile = async () => {
-  return axios.get(`${USERS_API_URL}/profile`, {
-    headers: getAuthHeader()
-  });
-};
-
-/**
- * Check if user is authenticated
- * @returns 
- */
-const isAuthenticated = () => {
-  const user = getCurrentUser();
-  return !!user;
-};
-
-/**
- * Check if user has a specific role
- * @param role - Role to check
- * @returns 
- */
-const hasRole = (role: string) => {
-  const user = getCurrentUser();
-  return user && user.role === role;
-};
-
-const AuthService = {
-  register,
-  login,
-  logout,
-  getCurrentUser,
-  getAuthHeader,
-  updateProfile,
-  getProfile,
-  isAuthenticated,
-  hasRole
-};
-
-export { getAuthHeader };
-export default AuthService;
+export default authService;

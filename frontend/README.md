@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # PrimePlus+ Frontend
 
 The frontend application for the PrimePlus+ platform, built with Next.js, TypeScript, and Tailwind CSS.
@@ -6,17 +5,22 @@ The frontend application for the PrimePlus+ platform, built with Next.js, TypeSc
 ## Features
 
 ### ✅ Completed Features
-- 🎨 Modern, responsive design
+- 🎨 Modern, responsive design with Tailwind CSS
 - 🌙 Dark mode support
-- 🔄 Real-time updates with WebSocket
-- 📱 Mobile-first approach
-- 💬 Interactive comments
-- 👥 User profiles and following system
+- 📝 Advanced content creation interface
+- 🖼️ Drag & drop media upload
+- 🎮 VR/3D model support
+- 👤 Enhanced profile management
+- 💰 Subscription plan integration
+- 🔍 Content type detection
+- 📸 Thumbnail generation
+- 🎯 Creator settings management
 
 ### 🟡 In Progress Features
-- 🎮 VR content viewer (Basic structure implemented)
-- 🔍 Advanced search interface
-- 📚 Collections management
+- 📊 Analytics dashboard
+- 🛡️ Content moderation
+- 🎮 Enhanced VR features
+- 🔍 Advanced search
 
 ## Tech Stack
 
@@ -26,7 +30,9 @@ The frontend application for the PrimePlus+ platform, built with Next.js, TypeSc
 - Headless UI
 - React Query
 - Zustand for state management
-- Three.js (VR Support)
+- Three.js for VR/3D
+- react-dropzone for file uploads
+- FFmpeg for media processing
 
 ## Project Structure
 
@@ -40,7 +46,8 @@ frontend/
 │   │   └── layout.tsx # Root layout
 │   ├── components/    # Reusable components
 │   │   ├── common/    # Shared components
-│   │   ├── creator/   # Creator-specific components
+│   │   ├── content/   # Content creation components
+│   │   ├── profile/   # Profile components
 │   │   ├── vr/        # VR-related components
 │   │   └── layout/    # Layout components
 │   ├── hooks/        # Custom React hooks
@@ -49,6 +56,188 @@ frontend/
 │   └── types/        # TypeScript types
 ├── public/           # Static assets
 └── package.json
+```
+
+## Component Documentation
+
+### Content Creation Components
+
+#### CreatePostForm
+Location: `components/content/CreatePostForm.tsx`
+Purpose: Advanced post creation interface
+
+Features:
+- Drag & drop media upload
+- Multiple file support
+- Content type detection
+- Subscription plan integration
+- Creator settings management
+- Thumbnail generation
+- VR/3D model support
+
+Props:
+```typescript
+interface CreatePostFormProps {
+  onPostCreated?: () => void;
+  subscriptionPlans?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    contentAccess: {
+      regularContent: boolean;
+      premiumVideos: boolean;
+      vrContent: boolean;
+      threeSixtyContent: boolean;
+      liveRooms: boolean;
+      interactiveModels: boolean;
+    };
+  }>;
+}
+```
+
+Usage:
+```jsx
+<CreatePostForm 
+  onPostCreated={() => console.log('Post created!')}
+  subscriptionPlans={subscriptionPlans}
+/>
+```
+
+### Profile Components
+
+#### BioEditor
+Location: `components/profile/BioEditor.tsx`
+Purpose: Inline bio editing component
+
+Features:
+- Inline editing
+- Character count
+- Emoji support
+- Auto-save functionality
+- Hover states
+- Error handling
+
+Props:
+```typescript
+interface BioEditorProps {
+  initialBio: string;
+  onSave: (bio: string) => Promise<void>;
+  maxLength?: number;
+  placeholder?: string;
+}
+```
+
+Usage:
+```jsx
+<BioEditor
+  initialBio="Hello World"
+  onSave={async (bio) => {
+    await updateBio(bio);
+  }}
+  maxLength={500}
+/>
+```
+
+### VR Components
+
+#### VRViewer
+Location: `components/vr/VRViewer.tsx`
+Purpose: 3D content viewer
+
+Features:
+- Model loading
+- Camera controls
+- Animation support
+- Environment mapping
+- Screenshot generation
+- Performance optimization
+
+Props:
+```typescript
+interface VRViewerProps {
+  mediaUrl: string;
+  contentType: 'model' | '360-video' | '360-image';
+  title?: string;
+  options?: VROptions;
+}
+```
+
+Usage:
+```jsx
+<VRViewer
+  mediaUrl="/path/to/model.glb"
+  contentType="model"
+  options={vrOptions}
+/>
+```
+
+### Media Components
+
+#### MediaUpload
+Location: `components/content/MediaUpload.tsx`
+Purpose: Unified media upload component
+
+Features:
+- Multi-file support
+- Progress tracking
+- Preview generation
+- Type validation
+- Size limits
+- Error handling
+
+Props:
+```typescript
+interface MediaUploadProps {
+  onUpload: (files: File[]) => void;
+  accept?: Record<string, string[]>;
+  maxSize?: number;
+  maxFiles?: number;
+}
+```
+
+Usage:
+```jsx
+<MediaUpload
+  onUpload={(files) => handleFiles(files)}
+  accept={{
+    'image/*': [],
+    'video/*': [],
+    'model/gltf-binary': ['.glb']
+  }}
+  maxSize={100 * 1024 * 1024} // 100MB
+/>
+```
+
+### Creator Components
+
+#### CreatorSettings
+Location: `components/creator/CreatorSettings.tsx`
+Purpose: Content management interface
+
+Features:
+- Access control
+- Pricing options
+- Subscription integration
+- Content categorization
+- Tooltips and help text
+- Validation
+
+Props:
+```typescript
+interface CreatorSettingsProps {
+  subscriptionPlans: SubscriptionPlan[];
+  onChange: (settings: VisibilitySettings) => void;
+  initialSettings?: Partial<VisibilitySettings>;
+}
+```
+
+Usage:
+```jsx
+<CreatorSettings
+  subscriptionPlans={plans}
+  onChange={handleSettingsChange}
+  initialSettings={currentSettings}
+/>
 ```
 
 ## Pages
@@ -186,23 +375,16 @@ npm run dev
 - `npm run lint` - Run ESLint
 - `npm run test` - Run tests
 
-### Code Style
-
-- Use TypeScript for all new code
-- Follow ESLint configuration
-- Write unit tests for components
-- Use Prettier for code formatting
-- Follow the component structure guidelines
-
 ### Component Guidelines
 
-1. Create components in the appropriate directory
-2. Use TypeScript interfaces for props
-3. Implement proper error handling
-4. Add loading states
-5. Make components responsive
-6. Add proper accessibility attributes
-7. Include unit tests
+1. Use TypeScript for all components
+2. Implement proper error handling
+3. Add loading states
+4. Make components responsive
+5. Add proper accessibility attributes
+6. Include unit tests
+7. Follow the project's naming conventions
+8. Document props and usage
 
 ## Testing
 
@@ -232,46 +414,4 @@ npm start
 
 ## License
 
-This project is licensed under the MIT License. 
-=======
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
-
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
-
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
-
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
->>>>>>> 7acf47fecc5bd76003b986e055ac01ea6b454ecc
+This project is licensed under the MIT License.

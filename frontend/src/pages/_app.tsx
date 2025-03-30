@@ -3,6 +3,8 @@ import type { AppProps } from 'next/app';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { UserProvider } from '@/context/UserContext';
+import mockStorage from '@/services/mockStorage';
+import { useEffect } from 'react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,6 +12,11 @@ const inter = Inter({
 });
 
 function MyApp({ Component, pageProps }: AppProps) {
+  useEffect(() => {
+    // Initialize mock storage on app startup
+    mockStorage.initialize();
+  }, []);
+
   return (
     <AuthProvider>
       <UserProvider>

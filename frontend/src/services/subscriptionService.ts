@@ -1,5 +1,8 @@
 import { Subscriber } from '@/types/subscription';
 import api from './api';
+import mockStorage from './mockStorage';
+import { mockSubscriptionPlans } from '@/mocks/data';
+import type { ServiceSubscriptionPlan, Subscription } from '@/types/subscription';
 
 export interface ContentTypeAccess {
   regularContent: boolean;
@@ -216,6 +219,107 @@ export const subscriptionService = {
 
   async cancelSubscription(subscriptionId: string): Promise<void> {
     await api.post(`/subscriptions/${subscriptionId}/cancel`);
+  },
+
+  getPlans: async () => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return mockSubscriptionPlans;
+  },
+
+  getCurrentSubscription: async () => {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const subscriptions = mockStorage.getSubscriptions() as Subscription[];
+    const currentUser = mockStorage.getCurrentUser();
+    
+    if (!currentUser) return null;
+    
+    return subscriptions.find(sub => 
+      sub.userId === currentUser.id && 
+      sub.status === 'active'
+    );
+  },
+
+  subscribe: async (planId: string) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const currentUser = mockStorage.getCurrentUser();
+    if (!currentUser) throw new Error('Not authenticated');
+
+    const plan = mockSubscriptionPlans.find(p => p.id === planId);
+    if (!plan) throw new Error('Plan not found');
+
+    const subscription: Subscription = {
+      id: String(Date.now()),
+      userId: currentUser.id,
+      planId: plan.id,
+      status: 'active',
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + plan.intervalInDays * 24 * 60 * 60 * 1000).toISOString(),
+      autoRenew: true
+    };
+
+    const subscriptions = mockStorage.getSubscriptions() as Subscription[];
+    mockStorage.set('primePlus_subscriptions', [...subscriptions, subscription]);
+
+    return subscription;
+  },
+
+  cancelSubscription: async (subscriptionId: string) => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    return mockStorage.update('primePlus_subscriptions', (subscriptions: Subscription[]) => {
+      return subscriptions.map(sub => 
+        sub.id === subscriptionId 
+          ? { ...sub, status: 'cancelled' as const, autoRenew: false }
+          : sub
+      );
+    });
+  },
+
+  createPlan: async (planData: Partial<ServiceSubscriptionPlan>) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const currentUser = mockStorage.getCurrentUser();
+    if (currentUser?.role !== 'admin') throw new Error('Unauthorized');
+
+    const newPlan: ServiceSubscriptionPlan = {
+      ...planData,
+      id: String(Date.now()),
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    } as ServiceSubscriptionPlan;
+
+    const plans = mockStorage.get('primePlus_subscription_plans') || mockSubscriptionPlans;
+    mockStorage.set('primePlus_subscription_plans', [...plans, newPlan]);
+
+    return newPlan;
+  },
+
+  updatePlan: async (planId: string, updates: Partial<ServiceSubscriptionPlan>) => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const currentUser = mockStorage.getCurrentUser();
+    if (currentUser?.role !== 'admin') throw new Error('Unauthorized');
+
+    return mockStorage.update('primePlus_subscription_plans', (plans: ServiceSubscriptionPlan[]) => {
+      return plans.map(plan => 
+        plan.id === planId 
+          ? { ...plan, ...updates, updatedAt: new Date().toISOString() }
+          : plan
+      );
+    });
+  },
+
+  deletePlan: async (planId: string) => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const currentUser = mockStorage.getCurrentUser();
+    if (currentUser?.role !== 'admin') throw new Error('Unauthorized');
+
+    return mockStorage.update('primePlus_subscription_plans', (plans: ServiceSubscriptionPlan[]) => {
+      return plans.filter(plan => plan.id !== planId);
+    });
   }
 };
 

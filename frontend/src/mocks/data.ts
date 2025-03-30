@@ -1,35 +1,45 @@
-import type { ServiceSubscriptionPlan } from '@/types/subscription';
+import type { SubscriptionPlan, ContentTypeAccess } from '@/types/subscription';
 import type { LocalPost } from '@/types/post';
-import { defaultContentAccess } from '@/constants/content';
 
-export const mockSubscriptionPlans: ServiceSubscriptionPlan[] = [
+export const defaultContentAccess: ContentTypeAccess = {
+  regularContent: true,
+  premiumVideos: false,
+  vrContent: false,
+  threeSixtyContent: false,
+  liveRooms: false,
+  interactiveModels: false
+};
+
+export const mockSubscriptionPlans: SubscriptionPlan[] = [
   {
     id: '1',
-    name: 'Basic Plan',
+    name: 'Basic',
+    description: 'Access to basic content',
     price: 9.99,
-    description: 'Access to regular content',
-    isActive: true,
-    features: ['Regular content access', 'Monthly updates'],
     intervalInDays: 30,
-    contentAccess: defaultContentAccess,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    features: ['Access to basic content', 'HD streaming', 'No ads'],
+    isActive: true,
+    contentAccess: {
+      ...defaultContentAccess,
+      regularContent: true
+    }
   },
   {
     id: '2',
-    name: 'Premium Plan',
+    name: 'Premium',
+    description: 'Access to all content including VR',
     price: 19.99,
-    description: 'Access to premium and VR content',
-    isActive: true,
-    features: ['All Basic Plan features', 'Premium content access', 'VR content access'],
     intervalInDays: 30,
+    features: ['Access to all content', '4K streaming', 'VR content', 'Priority support'],
+    isActive: true,
     contentAccess: {
-      ...defaultContentAccess,
+      regularContent: true,
       premiumVideos: true,
-      vrContent: true
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+      vrContent: true,
+      threeSixtyContent: true,
+      liveRooms: true,
+      interactiveModels: true
+    }
   }
 ];
 

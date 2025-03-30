@@ -18,11 +18,15 @@ import {
   LockClosedIcon,
   CurrencyDollarIcon,
   UserGroupIcon,
-  XMarkIcon
+  XMarkIcon,
+  CogIcon,
+  ChevronDownIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import VRViewer from '@/components/VRViewer';
 import Image from 'next/image';
 import { SubscriptionPlan } from '@/services/subscriptionService';
+import { useDropzone } from 'react-dropzone';
 
 interface CreatePostFormProps {
   onPostCreated?: () => void;
@@ -176,6 +180,23 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated, subscrip
 
   const [contentCategories, setContentCategories] = useState<ContentCategory[]>([]);
   const [suggestedPlans, setSuggestedPlans] = useState<string[]>([]);
+
+  // Setup dropzone
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: useCallback((acceptedFiles: File[]) => {
+      handleMediaChange({ target: { files: acceptedFiles }} as any);
+    }, []),
+    accept: {
+      'image/*': [],
+      'video/*': [],
+      'model/gltf-binary': ['.glb'],
+      'model/gltf+json': ['.gltf'],
+      'model/fbx': ['.fbx'],
+      'model/obj': ['.obj'],
+      'model/usdz': ['.usdz']
+    },
+    maxSize: 100 * 1024 * 1024 // 100MB
+  });
 
   const detectContentCategory = (file: File): ContentCategory => {
     const isImage = file.type.startsWith('image/');
@@ -684,6 +705,9 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated, subscrip
     setShowVROptions(true);
   };
 
+  const [showCreatorSettings, setShowCreatorSettings] = useState(false);
+  const [showSettingsInfo, setShowSettingsInfo] = useState(false);
+
   return (
     <>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -738,17 +762,41 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated, subscrip
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                  {/* Post Input */}
-                  <textarea
-                    rows={3}
-                    name="content"
-                    id="content"
-                    className="block w-full rounded-lg border-0 bg-gray-50 dark:bg-gray-700 px-4 py-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
-                    placeholder="What's on your mind?"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    disabled={isUploading}
-                  />
+                  {/* Post Input with Drag & Drop Area */}
+                  <div className="relative">
+                    <textarea
+                      rows={3}
+                      name="content"
+                      id="content"
+                      className="block w-full rounded-lg border-0 bg-gray-50 dark:bg-gray-700 px-4 py-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+                      placeholder="What's on your mind?"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      disabled={isUploading}
+                    />
+
+                    {/* Drag & Drop Zone */}
+                    <div 
+                      className={`mt-2 border-2 border-dashed rounded-lg p-6 transition-colors ${
+                        isDragActive 
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                          : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500'
+                      }`}
+                      {...getRootProps()}
+                    >
+                      <input {...getInputProps()} />
+                      <div className="text-center">
+                        <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Drag & drop your media here, or{' '}
+                          <span className="text-primary-600 hover:text-primary-500 cursor-pointer">browse</span>
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          Supports images, videos, 360° content, and VR/3D models
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Media Preview */}
                   {mediaFiles.length > 0 && (
@@ -780,290 +828,270 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onPostCreated, subscrip
                     </div>
                   )}
 
-                  {/* Creator Settings */}
-                  <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-4">
-                      <AdjustmentsHorizontalIcon className="h-5 w-5 text-primary-600" />
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100">Creator Settings</h3>
+                  {/* Creator Settings Dropdown */}
+                  <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreatorSettings(!showCreatorSettings)}
+                        className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                      >
+                        <CogIcon className="h-5 w-5" />
+                        <span>Creator Settings</span>
+                        <ChevronDownIcon className={`h-5 w-5 transition-transform ${showCreatorSettings ? 'transform rotate-180' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSettingsInfo(!showSettingsInfo)}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <QuestionMarkCircleIcon className="h-5 w-5" />
+                      </button>
                     </div>
 
-                    {/* Content Type Info */}
-                    {contentCategories.length > 0 && (
-                      <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center">
-                          <ViewfinderCircleIcon className="h-4 w-4 mr-2" />
-                          Content Type Detection
-                        </h4>
-                        <div className="space-y-2">
-                          {contentCategories.map((cat, index) => (
-                            <div key={index} className="flex items-start space-x-3 text-sm">
-                              <div className="flex-shrink-0 mt-1">
-                                {cat.type === 'vr' && <CubeIcon className="h-4 w-4 text-purple-500" />}
-                                {cat.type === '360' && <ViewfinderCircleIcon className="h-4 w-4 text-indigo-500" />}
-                                {cat.type === 'premium' && <CameraIcon className="h-4 w-4 text-blue-500" />}
-                                {cat.type === 'regular' && <PhotoIcon className="h-4 w-4 text-green-500" />}
-                                {cat.type === 'interactive' && <CubeTransparentIcon className="h-4 w-4 text-yellow-500" />}
-                              </div>
-                              <div>
-                                <p className="text-blue-700 dark:text-blue-300">{cat.description}</p>
-                                {cat.type !== 'regular' && (
-                                  <p className="text-blue-600/70 dark:text-blue-400/70 text-xs mt-1">
-                                    Recommended: Include in subscription plans for optimal monetization
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                    {/* Settings Info Tooltip */}
+                    {showSettingsInfo && (
+                      <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Creator Settings Help</h4>
+                        <ul className="space-y-2 text-gray-600 dark:text-gray-400">
+                          <li>• <strong>Content Access:</strong> Control who can view your content</li>
+                          <li>• <strong>Single Purchase:</strong> Allow one-time purchases</li>
+                          <li>• <strong>Subscription Plans:</strong> Include in specific subscription tiers</li>
+                          <li>• <strong>Content Type:</strong> Automatically detected based on uploaded media</li>
+                        </ul>
                       </div>
                     )}
 
-                    {/* Access Options */}
-                    <div className="space-y-6">
-                      {/* Free Access Option */}
-                      <div className="relative">
-                        <div className={`p-4 rounded-lg border ${
-                          visibilitySettings.isFree 
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`p-2 rounded-full ${
-                                visibilitySettings.isFree 
-                                  ? 'bg-green-100 dark:bg-green-800' 
-                                  : 'bg-gray-100 dark:bg-gray-700'
-                              }`}>
-                                <GlobeAltIcon className={`h-5 w-5 ${
+                    {/* Creator Settings Panel */}
+                    {showCreatorSettings && (
+                      <div className="mt-4 space-y-4">
+                        {/* Content Access Options */}
+                        <div className="space-y-4">
+                          <div className={`p-4 rounded-lg border ${
+                            visibilitySettings.isFree 
+                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className={`p-2 rounded-full ${
                                   visibilitySettings.isFree 
-                                    ? 'text-green-600 dark:text-green-400' 
-                                    : 'text-gray-500 dark:text-gray-400'
-                                }`} />
+                                    ? 'bg-green-100 dark:bg-green-800' 
+                                    : 'bg-gray-100 dark:bg-gray-700'
+                                }`}>
+                                  <GlobeAltIcon className={`h-5 w-5 ${
+                                    visibilitySettings.isFree 
+                                      ? 'text-green-600 dark:text-green-400' 
+                                      : 'text-gray-500 dark:text-gray-400'
+                                  }`} />
+                                </div>
+                                <div>
+                                  <label className="font-medium text-gray-900 dark:text-gray-100">Free Content</label>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Make this content available to everyone</p>
+                                </div>
                               </div>
-                              <div>
-                                <label className="font-medium text-gray-900 dark:text-gray-100">Free Access</label>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Make this content available to everyone</p>
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={visibilitySettings.isFree}
+                                  onChange={(e) => setVisibilitySettings(prev => ({
+                                    ...prev,
+                                    isFree: e.target.checked,
+                                    isIndividualPurchase: e.target.checked ? false : prev.isIndividualPurchase
+                                  }))}
+                                  className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                />
                               </div>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={visibilitySettings.isFree}
-                                onChange={(e) => setVisibilitySettings(prev => ({
-                                  ...prev,
-                                  isFree: e.target.checked
-                                }))}
-                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Single Purchase Option */}
-                      <div className="relative">
-                        <div className={`p-4 rounded-lg border ${
-                          visibilitySettings.isIndividualPurchase 
-                            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
-                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`p-2 rounded-full ${
-                                visibilitySettings.isIndividualPurchase 
-                                  ? 'bg-yellow-100 dark:bg-yellow-800' 
-                                  : 'bg-gray-100 dark:bg-gray-700'
-                              }`}>
-                                <CurrencyDollarIcon className={`h-5 w-5 ${
-                                  visibilitySettings.isIndividualPurchase 
-                                    ? 'text-yellow-600 dark:text-yellow-400' 
-                                    : 'text-gray-500 dark:text-gray-400'
-                                }`} />
-                              </div>
-                              <div>
-                                <label className="font-medium text-gray-900 dark:text-gray-100">Single Purchase</label>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Allow one-time purchases for this content</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={visibilitySettings.isIndividualPurchase}
-                                onChange={(e) => setVisibilitySettings(prev => ({
-                                  ...prev,
-                                  isIndividualPurchase: e.target.checked
-                                }))}
-                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                              />
                             </div>
                           </div>
 
-                          {/* Price Input */}
-                          {visibilitySettings.isIndividualPurchase && (
-                            <div className="mt-4 pl-12">
-                              <div className="flex items-center space-x-2">
-                                <div className="relative rounded-md shadow-sm max-w-[200px]">
-                                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <span className="text-gray-500 sm:text-sm">$</span>
+                          {/* Single Purchase Option */}
+                          <div className="relative">
+                            <div className={`p-4 rounded-lg border ${
+                              visibilitySettings.isIndividualPurchase 
+                                ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
+                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                            }`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className={`p-2 rounded-full ${
+                                    visibilitySettings.isIndividualPurchase 
+                                      ? 'bg-yellow-100 dark:bg-yellow-800' 
+                                      : 'bg-gray-100 dark:bg-gray-700'
+                                  }`}>
+                                    <CurrencyDollarIcon className={`h-5 w-5 ${
+                                      visibilitySettings.isIndividualPurchase 
+                                        ? 'text-yellow-600 dark:text-yellow-400' 
+                                        : 'text-gray-500 dark:text-gray-400'
+                                    }`} />
                                   </div>
+                                  <div>
+                                    <label className="font-medium text-gray-900 dark:text-gray-100">Single Purchase</label>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Allow one-time purchases for this content</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center">
                                   <input
-                                    type="number"
-                                    min="0.99"
-                                    step="0.01"
-                                    value={visibilitySettings.individualPrice}
+                                    type="checkbox"
+                                    checked={visibilitySettings.isIndividualPurchase}
                                     onChange={(e) => setVisibilitySettings(prev => ({
                                       ...prev,
-                                      individualPrice: parseFloat(e.target.value)
+                                      isIndividualPurchase: e.target.checked
                                     }))}
-                                    placeholder="0.00"
-                                    className="block w-full rounded-md border-0 py-1.5 pl-7 pr-4 text-gray-900 dark:text-gray-100 dark:bg-gray-700 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+                                    className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                   />
                                 </div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">USD</span>
                               </div>
-                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                Recommended: Set a price between $0.99 and $49.99
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Subscription Plans */}
-                      <div className="relative">
-                        <div className={`p-4 rounded-lg border ${
-                          visibilitySettings.includeInSubscription 
-                            ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' 
-                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`p-2 rounded-full ${
-                                visibilitySettings.includeInSubscription 
-                                  ? 'bg-purple-100 dark:bg-purple-800' 
-                                  : 'bg-gray-100 dark:bg-gray-700'
-                              }`}>
-                                <UserGroupIcon className={`h-5 w-5 ${
-                                  visibilitySettings.includeInSubscription 
-                                    ? 'text-purple-600 dark:text-purple-400' 
-                                    : 'text-gray-500 dark:text-gray-400'
-                                }`} />
-                              </div>
-                              <div>
-                                <label className="font-medium text-gray-900 dark:text-gray-100">Subscription Plans</label>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Include in your subscription tiers</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={visibilitySettings.includeInSubscription}
-                                onChange={(e) => setVisibilitySettings(prev => ({
-                                  ...prev,
-                                  includeInSubscription: e.target.checked
-                                }))}
-                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Plan Selection */}
-                          {visibilitySettings.includeInSubscription && subscriptionPlans.length > 0 && (
-                            <div className="mt-4 pl-12">
-                              <div className="space-y-3">
-                                {subscriptionPlans.map(plan => (
-                                  <label key={plan.id} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
-                                    <div className="flex items-center min-w-0">
-                                      <input
-                                        type="checkbox"
-                                        checked={visibilitySettings.selectedPlans.includes(plan.id)}
-                                        onChange={(e) => {
-                                          setVisibilitySettings(prev => ({
-                                            ...prev,
-                                            selectedPlans: e.target.checked
-                                              ? [...prev.selectedPlans, plan.id]
-                                              : prev.selectedPlans.filter(id => id !== plan.id)
-                                          }));
-                                        }}
-                                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                      />
-                                      <div className="ml-3 min-w-0">
-                                        <div className="flex items-center space-x-2">
-                                          <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                                            {plan.name}
-                                          </span>
-                                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                                            ${plan.price}/month
-                                          </span>
-                                        </div>
-                                        {plan.contentAccess && (
-                                          <div className="flex flex-wrap gap-1 mt-1">
-                                            {plan.contentAccess.regularContent && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                                                Regular
-                                              </span>
-                                            )}
-                                            {plan.contentAccess.premiumVideos && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                                                Premium
-                                              </span>
-                                            )}
-                                            {plan.contentAccess.vrContent && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                                                VR
-                                              </span>
-                                            )}
-                                            {plan.contentAccess.threeSixtyContent && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
-                                                360°
-                                              </span>
-                                            )}
-                                            {plan.contentAccess.liveRooms && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300">
-                                                Live
-                                              </span>
-                                            )}
-                                            {plan.contentAccess.interactiveModels && (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
-                                                Interactive
-                                              </span>
-                                            )}
-                                          </div>
-                                        )}
+                              {/* Price Input */}
+                              {visibilitySettings.isIndividualPurchase && (
+                                <div className="mt-4 pl-12">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="relative rounded-md shadow-sm max-w-[200px]">
+                                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <span className="text-gray-500 sm:text-sm">$</span>
                                       </div>
+                                      <input
+                                        type="number"
+                                        min="0.99"
+                                        step="0.01"
+                                        value={visibilitySettings.individualPrice}
+                                        onChange={(e) => setVisibilitySettings(prev => ({
+                                          ...prev,
+                                          individualPrice: parseFloat(e.target.value)
+                                        }))}
+                                        placeholder="0.00"
+                                        className="block w-full rounded-md border-0 py-1.5 pl-7 pr-4 text-gray-900 dark:text-gray-100 dark:bg-gray-700 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+                                      />
                                     </div>
-                                  </label>
-                                ))}
-                              </div>
-                              {subscriptionPlans.length === 0 && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                                  No subscription plans available. Create plans in your profile settings.
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">USD</span>
+                                  </div>
+                                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Recommended: Set a price between $0.99 and $49.99
+                                  </p>
                                 </div>
                               )}
                             </div>
-                          )}
+                          </div>
+
+                          {/* Subscription Plans */}
+                          <div className="relative">
+                            <div className={`p-4 rounded-lg border ${
+                              visibilitySettings.includeInSubscription 
+                                ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' 
+                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                            }`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className={`p-2 rounded-full ${
+                                    visibilitySettings.includeInSubscription 
+                                      ? 'bg-purple-100 dark:bg-purple-800' 
+                                      : 'bg-gray-100 dark:bg-gray-700'
+                                  }`}>
+                                    <UserGroupIcon className={`h-5 w-5 ${
+                                      visibilitySettings.includeInSubscription 
+                                        ? 'text-purple-600 dark:text-purple-400' 
+                                        : 'text-gray-500 dark:text-gray-400'
+                                    }`} />
+                                  </div>
+                                  <div>
+                                    <label className="font-medium text-gray-900 dark:text-gray-100">Subscription Plans</label>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Include in your subscription tiers</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={visibilitySettings.includeInSubscription}
+                                    onChange={(e) => setVisibilitySettings(prev => ({
+                                      ...prev,
+                                      includeInSubscription: e.target.checked
+                                    }))}
+                                    className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Plan Selection */}
+                              {visibilitySettings.includeInSubscription && subscriptionPlans.length > 0 && (
+                                <div className="mt-4 pl-12">
+                                  <div className="space-y-3">
+                                    {subscriptionPlans.map(plan => (
+                                      <label key={plan.id} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
+                                          <div className="flex items-center min-w-0">
+                                            <input
+                                              type="checkbox"
+                                              checked={visibilitySettings.selectedPlans.includes(plan.id)}
+                                              onChange={(e) => {
+                                                setVisibilitySettings(prev => ({
+                                                  ...prev,
+                                                  selectedPlans: e.target.checked
+                                                    ? [...prev.selectedPlans, plan.id]
+                                                    : prev.selectedPlans.filter(id => id !== plan.id)
+                                                }));
+                                              }}
+                                              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                            />
+                                            <div className="ml-3 min-w-0">
+                                              <div className="flex items-center space-x-2">
+                                                <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                  {plan.name}
+                                                </span>
+                                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                  ${plan.price}/month
+                                                </span>
+                                              </div>
+                                              {plan.contentAccess && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {plan.contentAccess.regularContent && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                                      Regular
+                                                    </span>
+                                                  )}
+                                                  {plan.contentAccess.premiumVideos && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                                      Premium
+                                                    </span>
+                                                  )}
+                                                  {plan.contentAccess.vrContent && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                                                      VR
+                                                    </span>
+                                                  )}
+                                                  {plan.contentAccess.threeSixtyContent && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
+                                                      360°
+                                                    </span>
+                                                  )}
+                                                  {plan.contentAccess.liveRooms && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300">
+                                                      Live
+                                                    </span>
+                                                  )}
+                                                  {plan.contentAccess.interactiveModels && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                                      Interactive
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </label>
+                                    ))}
+                                  </div>
+                                  {subscriptionPlans.length === 0 && (
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                                      No subscription plans available. Create plans in your profile settings.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Help Text */}
-                    <div className="mt-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Understanding Content Access</h4>
-                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                        <li className="flex items-start">
-                          <GlobeAltIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
-                          <span>Free content is accessible to all visitors</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CurrencyDollarIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
-                          <span>Single purchase allows users to buy just this content</span>
-                        </li>
-                        <li className="flex items-start">
-                          <UserGroupIcon className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
-                          <span>Subscription plans give access to multiple content pieces</span>
-                        </li>
-                      </ul>
-                    </div>
+                    )}
                   </div>
 
                   {/* Action Buttons */}
