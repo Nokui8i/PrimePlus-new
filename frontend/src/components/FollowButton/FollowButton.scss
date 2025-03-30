@@ -1,0 +1,20 @@
+.follow-button {
+  transition: all 0.2s ease;
+  min-width: 90px;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+  
+  &.btn-outline-primary:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.85);
+  }
+  
+  &.btn-sm {
+    min-width: 70px;
+  }
+  
+  &.btn-lg {
+    min-width: 110px;
+  }
+}
