@@ -3,40 +3,50 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String      @id @default(cuid())
-  name          String?
-  email         String?     @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  accounts      Account[]
-  sessions      Session[]
-  posts         Post[]
-  vrContent     VRContent[]
-  subscriptions Subscription[]
-  followers     Follow[]    @relation("following")
-  following     Follow[]    @relation("follower")
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  emailVerified     DateTime?
+  image             String?
+  isVerifiedCreator Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  accounts          Account[]
+  sessions          Session[]
+  posts             Post[]
+  verificationRequests VerificationRequest[]
+  messagePrice      Float?    // Price for one-time messaging
+  sentMessages      Message[]  @relation("SentMessages")
+  receivedMessages  Message[]  @relation("ReceivedMessages")
+  userConversations UserConversation[]
+  streams           Stream[]
+  tips              Tip[]
+  likes             Like[]
+  comments          Comment[]
+  saves             Save[]
+  collections       Collection[]
+  followers         Follow[]    @relation("following")
+  following         Follow[]    @relation("follower")
+  stories           Story[]
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -45,40 +55,74 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   sessionToken String   @unique
-  userId       String
+  userId       String   @db.ObjectId
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Post {
-  id        String   @id @default(cuid())
-  title     String?
-  content   String?
-  published Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  authorId  String
-
-  author    User     @relation(fields: [authorId], references: [id])
-  media     Media[]
+  id            String    @id @default(cuid())
+  content       String
+  contentType   String    // 'text', 'media', 'vr', '360', 'live'
+  mediaUrl      String?
+  isVR          Boolean   @default(false)
+  is360         Boolean   @default(false)
+  isLive        Boolean   @default(false)
+  allowComments Boolean   @default(true)
+  tipAmount     Float?
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
-model Media {
-  id          String   @id @default(cuid())
-  type        String   // image, video, vr
-  url         String
-  price       Float?
-  postId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Like {
+  id        String   @id @default(cuid()) @map("_id")
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid()) @map("_id")
+  content   String
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+}
+
+model Save {
+  id        String   @id @default(cuid()) @map("_id")
+  postId    String
+  userId    String
+  collectionId String?
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@index([collectionId])
 }
 
 model VRContent {
-  id                    String      @id @default(cuid())
+  id                    String      @id @default(auto()) @map("_id") @db.ObjectId
   title                 String
   description          String
   contentType          String      // '360-image' | '360-video' | 'vr-room'
@@ -89,7 +133,7 @@ model VRContent {
   mediaUrl             String
   thumbnailUrl         String
   hotspots             Json[]      // Array of hotspot objects
-  authorId             String
+  authorId             String      @db.ObjectId
   author               User        @relation(fields: [authorId], references: [id])
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
@@ -105,9 +149,9 @@ model VRContent {
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
-  creatorId String
-  userId    String
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  creatorId String   @db.ObjectId
+  userId    String   @db.ObjectId
   price     Float
   startDate DateTime @default(now())
   endDate   DateTime
@@ -116,13 +160,161 @@ model Subscription {
 }
 
 model Follow {
-  id          String   @id @default(cuid())
-  followerId  String
-  followingId String
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  followerId  String   @db.ObjectId
+  followingId String   @db.ObjectId
   createdAt   DateTime @default(now())
 
   follower    User     @relation("follower", fields: [followerId], references: [id])
   following   User     @relation("following", fields: [followingId], references: [id])
 
   @@unique([followerId, followingId])
+}
+
+model Stream {
+  id              String            @id @default(cuid()) @map("_id")
+  title           String
+  description     String?
+  thumbnail       String?
+  allowCommands   Boolean           @default(true)
+  quality         String            @default("720p")
+  category        String?
+  tags            String[]
+  status          StreamStatus      @default(PENDING)
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  promotionalLinks PromotionalLink[]
+  tips            Tip[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model PromotionalLink {
+  id        String   @id @default(cuid()) @map("_id")
+  title     String
+  url       String
+  isVisible Boolean  @default(true)
+  streamId  String
+  stream    Stream   @relation(fields: [streamId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tip {
+  id        String   @id @default(cuid()) @map("_id")
+  amount    Float
+  message   String?
+  streamId  String
+  stream    Stream   @relation(fields: [streamId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Story {
+  id        String   @id @default(cuid()) @map("_id")
+  image     String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  message   String
+  userEmail String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userEmail])
+}
+
+model Conversation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userConversations UserConversation[]
+  messages  Message[]
+  isPaid    Boolean  @default(false)
+  paidAmount Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model UserConversation {
+  id             String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String
+  conversationId String      @db.ObjectId
+  user           User        @relation(fields: [userId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime    @default(now())
+
+  @@unique([userId, conversationId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Message {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  content        String
+  senderId       String   @db.ObjectId
+  recipientId    String   @db.ObjectId
+  conversationId String   @db.ObjectId
+  createdAt      DateTime @default(now())
+  read           Boolean  @default(false)
+
+  sender      User         @relation("SentMessages", fields: [senderId], references: [id])
+  recipient   User         @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model Collection {
+  id          String   @id @default(cuid()) @map("_id")
+  name        String
+  description String?
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saves       Save[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model VerificationRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  fullName        String
+  phoneNumber     String
+  address         String
+  idType          String    // 'passport', 'drivers_license', 'national_id'
+  idNumber        String
+  idImageUrl      String
+  socialMediaLinks String[]
+  portfolioUrl    String?
+  status          String    // 'pending', 'approved', 'rejected'
+  rejectionReason String?
+  submittedAt     DateTime  @default(now())
+  reviewedAt      DateTime?
+}
+
+enum StreamStatus {
+  PENDING
+  LIVE
+  ENDED
+  ARCHIVED
 } 

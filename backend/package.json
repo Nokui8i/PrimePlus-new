@@ -10,7 +10,8 @@
     "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts",
     "migrate": "prisma migrate deploy",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "update-profiles": "ts-node src/scripts/updateUserProfiles.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -31,6 +32,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "nodemailer": "^6.10.0",
+    "sharp": "^0.33.5",
     "socket.io": "^4.7.4",
     "stripe": "^14.25.0",
     "winston": "^3.11.0",

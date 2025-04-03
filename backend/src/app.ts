@@ -10,6 +10,12 @@ import messageRoutes from './routes/messageRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import authRoutes from './routes/auth';
 import subscriptionPlanRoutes from './routes/subscriptionPlan';
+import subscriptionTiersRouter from './routes/creator/subscription-tiers'
+import creatorVerifyRouter from './routes/creator/verify'
+import subscriptionRoutes from './routes/subscriptionRoutes'
+import suggestedCreatorsRouter from './routes/creator/suggested'
+import usersRouter from './routes/users'
+import userRoutesMe from './routes/users/me'
 
 // Initialize Prisma with singleton pattern
 const globalForPrisma = globalThis as unknown as {
@@ -38,10 +44,15 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/subscription', subscriptionPlanRoutes);
+app.use('/api/creator/subscription-tiers', subscriptionTiersRouter)
+app.use('/api/creator/verify', creatorVerifyRouter)
+app.use('/api/subscriptions', subscriptionRoutes)
+app.use('/api/creators/suggested', suggestedCreatorsRouter)
+app.use('/api/users', usersRouter)
+app.use('/api/users', userRoutesMe)
 
 // Health check
 app.get('/health', (req, res) => {

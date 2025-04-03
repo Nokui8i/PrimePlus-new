@@ -1,176 +1,127 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
 model User {
-  id            String    @id @default(cuid())
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
   email         String    @unique
   username      String    @unique
-  password      String
   name          String?
+  nickname      String?
+  password      String
   bio           String?
   avatar        String?
   coverImage    String?
-  role          Role      @default(USER)
+  role          UserRole  @default(USER)
   isVerified    Boolean   @default(false)
+  isModerator   Boolean   @default(false)
+  isOnline      Boolean   @default(false)
+  lastSeen      DateTime  @default(now())
+  profileUrl    String    @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  posts         Post[]
-  comments      Comment[]
-  likes         Like[]
-  followers     Follow[]    @relation("Following")
-  following     Follow[]    @relation("Followers")
-  collections   Collection[]
-  subscriptions Subscription[]
-  sentMessages     Message[]  @relation("SentMessages")
-  receivedMessages Message[]  @relation("ReceivedMessages")
-  createdPlans  SubscriptionPlan[]
-}
-
-model Message {
-  id        String   @id @default(cuid())
-  content   String
-  createdAt DateTime @default(now())
-
-  // Relations
-  sender    User     @relation("SentMessages", fields: [senderId], references: [id])
-  senderId  String
-  receiver  User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  receiverId String
-
-  @@index([senderId])
-  @@index([receiverId])
+  posts         Post[]    @relation("UserPosts")
+  reportsMade   Report[]  @relation("ReportedBy")
+  reportsHandled Report[]  @relation("ModeratedBy")
+  warningsGiven Warning[] @relation("WarningsGiven")
+  warningsReceived Warning[] @relation("WarningsReceived")
+  subscriptionTiers SubscriptionTier[] @relation("CreatorTiers")
+  creatorProfile CreatorProfile?
 }
 
 model Post {
-  id          String    @id @default(cuid())
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   title       String?
   content     String
-  type        PostType  @default(TEXT)
+  type        String    @default("text")
   isPremium   Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  author      User      @relation(fields: [authorId], references: [id])
-  authorId    String
-  likes       Like[]
-  comments    Comment[]
-  collections Collection[]
+  author      User      @relation("UserPosts", fields: [authorId], references: [id])
+  authorId    String    @db.ObjectId
 }
 
-model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model SubscriptionTier {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  price        Float
+  duration     Int      // in days
+  contentTypes String[] // Array of content type IDs
+  isActive     Boolean  @default(true)
+  creatorId    String   @db.ObjectId
+  creator      User     @relation("CreatorTiers", fields: [creatorId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  // Relations
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  post      Post     @relation(fields: [postId], references: [id])
-  postId    String
+  @@index([creatorId])
 }
 
-model Like {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
+model CreatorProfile {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String    @db.ObjectId
+  user                User      @relation(fields: [userId], references: [id])
+  bio                 String?
+  website             String?
+  socialLinks         Json?
+  isVerified          Boolean   @default(false)
+  verifiedAt          DateTime?
+  identityVerified    Boolean   @default(false)
+  identityVerifiedAt  DateTime?
+  termsVerified       Boolean   @default(false)
+  termsVerifiedAt     DateTime?
+  feesVerified        Boolean   @default(false)
+  feesVerifiedAt      DateTime?
+  idDocumentUploaded  Boolean   @default(false)
+  idDocumentUploadedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  // Relations
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  post      Post     @relation(fields: [postId], references: [id])
-  postId    String
-
-  @@unique([userId, postId])
+  @@unique([userId])
 }
 
-model Follow {
-  id          String   @id @default(cuid())
+model Report {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  type        String   // 'post' | 'comment' | 'message'
+  contentId   String
+  content     String
+  reason      String
+  status      String   @default("pending") // 'pending' | 'resolved'
+  action      String?  // 'approved' | 'removed' | 'warned'
+  reportedAt  DateTime @default(now())
+  resolvedAt  DateTime?
+  reportedBy  User     @relation("ReportedBy", fields: [reportedById], references: [id])
+  reportedById String  @db.ObjectId
+  moderator   User?    @relation("ModeratedBy", fields: [moderatorId], references: [id])
+  moderatorId String?  @db.ObjectId
+
+  @@index([reportedById])
+  @@index([moderatorId])
+}
+
+model Warning {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  reason      String
   createdAt   DateTime @default(now())
+  moderator   User     @relation("WarningsGiven", fields: [moderatorId], references: [id])
+  moderatorId String   @db.ObjectId
+  user        User     @relation("WarningsReceived", fields: [userId], references: [id])
 
-  // Relations
-  follower    User     @relation("Following", fields: [followerId], references: [id])
-  followerId  String
-  following   User     @relation("Followers", fields: [followingId], references: [id])
-  followingId String
-
-  @@unique([followerId, followingId])
-}
-
-model Collection {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isPrivate   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  owner       User     @relation(fields: [ownerId], references: [id])
-  ownerId     String
-  posts       Post[]
-}
-
-model SubscriptionPlan {
-  id            String    @id @default(cuid())
-  name          String
-  price         Float
-  description   String?
-  features      String[]
-  intervalInDays Int
-  isActive      Boolean   @default(true)
-  contentAccess Json      @default("{\"regularContent\":true,\"premiumVideos\":false,\"vrContent\":false,\"threeSixtyContent\":false,\"liveRooms\":false,\"interactiveModels\":false}")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  creator       User      @relation(fields: [creatorId], references: [id])
-  creatorId     String
-  subscriptions Subscription[]
-}
-
-model Subscription {
-  id        String   @id @default(cuid())
-  startDate DateTime @default(now())
-  endDate   DateTime
-  status    SubStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  subscriber User     @relation(fields: [subscriberId], references: [id])
-  subscriberId String
-  plan       SubscriptionPlan @relation(fields: [planId], references: [id])
-  planId     String
-}
-
-enum Role {
-  USER
-  CREATOR
-  ADMIN
-}
-
-enum PostType {
-  TEXT
-  IMAGE
-  VIDEO
-  VR
-  POLL
-}
-
-enum SubStatus {
-  ACTIVE
-  CANCELLED
-  EXPIRED
+  @@index([userId])
+  @@index([moderatorId])
 } 

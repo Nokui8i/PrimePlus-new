@@ -1,0 +1,40 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Before starting any coding work, developers MUST:
+
+1. Read and analyze all README files in the project:
+   - Root [README.md](mdc:README.md) `README.md`
+   - `frontend/README.md`
+   -      `backend/README.md`
+   -  [README_ONLYFANS_DESIGN.md](mdc:project_vision/README_ONLYFANS_DESIGN.md)   `project_vision/README_ONLYFANS_DESIGN.md`
+   -  [ONLYFANS_DESIGN_IMPLEMENTATION.md](mdc:project_vision/ONLYFANS_DESIGN_IMPLEMENTATION.md)  `project_vision/ONLYFANS_DESIGN_IMPLEMENTATION.md`
+   - [IMPLEMENTATION_SUMMARY.md](mdc:project_vision/IMPLEMENTATION_SUMMARY.md)   `project_vision/IMPLEMENTATION_SUMMARY.md`
+   - [DEVELOPMENT_GUIDE.md](mdc:DEVELOPMENT_GUIDE.md)  `DEVELOPMENT_GUIDE.md`
+   -  [WEBSITE_STRUCTURE.md](mdc:WEBSITE_STRUCTURE.md) `WEBSITE_STRUCTURE.md`
+
+2. Understand the current state of:
+   - Project structure
+   - Design system
+   - Component library
+   - Database schema
+   - API routes
+   - State management
+   - Version history
+
+3. Follow the established patterns:
+   - Page templates
+   - Component structure
+   - Styling conventions
+   - State management
+   - Error handling
+   - Loading states
+
+4. Document any changes:
+   - Update relevant README files
+   - Add new components to the component library
+   - Update the version history
+   - Document any new API routes
+   - Update database schema if needed
